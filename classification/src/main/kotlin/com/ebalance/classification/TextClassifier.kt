@@ -142,8 +142,8 @@ class TextClassifier(
 
     fun predictWithScore(
         text: String,
-        unknown: Pair<String, Double> = "0" to 0.0,
-        aiThreshold: Double = 0.70
+        unknown: Pair<String, Double> = "DESCONHECIDA" to 0.0,
+        aiThreshold: Double = 0.50
     ): Pair<String, Double> {
 
         log.debug("Classifying input: '$text'")
@@ -184,7 +184,8 @@ class TextClassifier(
         if (aiScore < aiThreshold) {
             log.debug("AI score $aiScore below threshold $aiThreshold, trying fuzzy matching...")
             val fuzzyMatch = findBestFuzzyMatch(cleanedInput)
-            if (fuzzyMatch != null && fuzzyMatch.second > 0.70) { // 70% string similarity required
+            // Lower threshold for fuzzy matching to 50%
+            if (fuzzyMatch != null && fuzzyMatch.second > 0.50) {
                 log.debug("Fuzzy match found: label=${fuzzyMatch.first}, similarity=${fuzzyMatch.second}")
                 return fuzzyMatch
             } else {
@@ -198,12 +199,35 @@ class TextClassifier(
     private fun findBestFuzzyMatch(text: String): Pair<String, Double>? {
         if (cleanedTrainingData.isEmpty() || text.isEmpty()) return null
 
-        return cleanedTrainingData.map { (trainedName, label) ->
+        // Try matching full text first
+        val fullMatch = cleanedTrainingData.map { (trainedName, label) ->
             val distance = levenshtein.apply(text, trainedName)
             val maxLength = maxOf(text.length, trainedName.length)
             val similarity = if (maxLength == 0) 0.0 else (1.0 - (distance.toDouble() / maxLength))
             label to similarity
         }.maxByOrNull { it.second }
+
+        // If full text match is poor, try matching individual tokens
+        val tokens = text.split(" ").filter { it.isNotBlank() }
+        if (tokens.size > 1) {
+            val tokenMatches = tokens.mapNotNull { token ->
+                cleanedTrainingData
+                    .filter { (trainedName, _) -> trainedName.contains(token) || token.contains(trainedName) }
+                    .maxByOrNull { (_, label) -> label }
+                    ?.let { (_, label) -> label to 0.8 } // Moderate confidence for partial match
+            }
+            
+            if (tokenMatches.isNotEmpty()) {
+                // Return the most common label among token matches
+                val bestLabel = tokenMatches.groupBy { it.first }.maxByOrNull { it.value.size }?.key
+                val avgConfidence = tokenMatches.map { it.second }.average()
+                if (bestLabel != null && (fullMatch?.second ?: 0.0) < avgConfidence) {
+                    return bestLabel to avgConfidence
+                }
+            }
+        }
+
+        return fullMatch
     }
 
     /**

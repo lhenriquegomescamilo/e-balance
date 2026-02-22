@@ -70,7 +70,7 @@ class CategoryClassifier(
             val (label, confidence) = textClassifier.predictWithScore(
                 text = description,
                 unknown = "DESCONHECIDA" to 0.0,
-                aiThreshold = 0.70
+                aiThreshold = 0.50
             )
 
             // Convert label to category ID using the provided function

@@ -1,5 +1,7 @@
 package com.ebalance.domain.model
 
+import org.slf4j.LoggerFactory
+
 /**
  * Enum representing predefined expense/income categories.
  * These correspond to the category table in the database.
@@ -52,6 +54,8 @@ enum class Category(val id: Long, val displayName: String) {
     GINASIO(44, "Ginásio");
 
     companion object {
+
+        private val log = LoggerFactory.getLogger(Category::class.java)
         /**
          * Returns the category by its ID.
          */
@@ -67,8 +71,10 @@ enum class Category(val id: Long, val displayName: String) {
         /**
          * Returns the category by its enum name.
          */
-        fun fromEnumName(name: String): Category =
-            entries.find { it.name.equals(name, ignoreCase = true) } ?: DESCONHECIDA
+        fun fromEnumName(name: String): Category {
+            log.info("Looking up category by enum name: $name")
+            return entries.find { it.name.equals(name, ignoreCase = true) } ?: DESCONHECIDA
+        }
 
         /**
          * Returns true if this category is a fixed expense.

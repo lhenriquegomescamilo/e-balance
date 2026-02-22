@@ -1,11 +1,21 @@
 HOSPITAL;Hospital Da Luz Sa
+HOSPITAL;Hsp Luz Arrabida
+HOSPITAL;Hospital Curry Cabral
+HOSPITAL;Hospital Santa Maria
 COMBUSTIVEL;Posto Garzzo
 COMBUSTIVEL;Alfabrent
 COMBUSTIVEL;Bp Prior Velho
+COMBUSTIVEL;Repsol
+COMBUSTIVEL;Galp
+COMBUSTIVEL; Cepsa
 TRANSPORTE;Uber Trip
 TRANSPORTE;Uber* Trip
 TRANSPORTE;Uber
+TRANSPORTE;Uber Eats
+TRANSPORTE;Bolt
+TRANSPORTE;Taxi
 SEGURANCA_SOCIAL;Aegon Santander Portugal Nao Vida
+SEGURANCA_SOCIAL;Segurança Social
 RESTAURANTE;Mcdonalds
 RESTAURANTE;Choco Val
 RESTAURANTE;Fabrisa Mariano Ribei
@@ -23,6 +33,11 @@ RESTAURANTE;Sabores D Maria
 RESTAURANTE;Rosa Da Cunha Castro
 RESTAURANTE;Ret El Caminito
 RESTAURANTE;Cbbhp-hotels-in-port
+RESTAURANTE;Starbucks
+RESTAURANTE;Restaurante
+RESTAURANTE;Café
+RESTAURANTE;Pizza
+RESTAURANTE;Sabores De Viana
 ASSINATURAS;Netflix
 ASSINATURAS;Spotify
 ASSINATURAS;Google Youtube Member
@@ -30,55 +45,148 @@ ASSINATURAS;Jetbrains Americas Inc
 ASSINATURAS;Google Youtubepremium
 ASSINATURAS;Pilgrim App
 ASSINATURAS;Apple
+ASSINATURAS;Apple Store
+ASSINATURAS;Amazon Prime
+ASSINATURAS;Disney+
+ASSINATURAS;HBO Max
+ASSINATURAS;Microsoft 365
 FARMACIA;Atacadao Drogacenter
+FARMACIA;Farmacia
+FARMACIA;Farmácia
+FARMACIA;Drogaria
+FARMACIA;Farm Dias Machado
 TRANSFERENCIAS_BRASIL;Transferwise
 TRANSFERENCIAS_BRASIL;Wise
 TRANSFERENCIAS_BRASIL;Transferência para Jose Carlos Nogueira Lima
+TRANSFERENCIAS_BRASIL;Remessa
+TRANSFERENCIAS_BRASIL;Transferência Brasil
 TELEFONIA;Nos Comunicacoes
 TELEFONIA;Airalo
+TELEFONIA;Vodafone
+TELEFONIA;MEO
+TELEFONIA;Altice
 MORADIA;Amazon Br
 MORADIA;Havan Valparaiso De Go
 MORADIA;Hiper Casa
+MORADIA;Arrendamento
+MORADIA;Aluguel
+MORADIA;Imo
 DELIVERY;Sushiloko
 DELIVERY;Bolt
 DELIVERY;Rest Sushi Rao
+DELIVERY;Uber Eats
+DELIVERY;Glovo
+DELIVERY;Just Eat
 INVESTIMENTO;Coinbase Ireland Limited
+INVESTIMENTO;Trade Republic
+INVESTIMENTO;Investing
+INVESTIMENTO;Bolsa
 INVESTIMENTO;Transferência para Jose Carlos Nogueira Lima
 IMPOSTO;Trf. Cobr DUC
+IMPOSTO;Imposto
+IMPOSTO;Finanças
 LEVANTAMENTO;Transferência para Nr
+LEVANTAMENTO;Levantamento
+LEVANTAMENTO;Multibanco
+LEVANTAMENTO;Caixa
 CARRO;321 Credito
 CARRO;Carpneu
+CARRO;Norauto
+CARRO;Mitas
+CARRO;Jumpero
+CARRO;Credito
+CARRO;Financiamento
 TAXA_BANCARIA;Imposto do Selo
 TAXA_BANCARIA;Comissão de manutenção de conta pacote
 TAXA_BANCARIA;Comissão Trf Cred Sepa
+TAXA_BANCARIA;Taxa Bancária
+TAXA_BANCARIA;Comissão
 TURISMO;Cars On Booking
 TURISMO;Hotel At Booking
 TURISMO;Aero Sleep Campinas
 TURISMO;Flysafeb
 TURISMO;Ale-hop Aeropuerto T1
+TURISMO;Itvp Lisboa
+TURISMO;Booking
+TURISMO;Airbnb
+TURISMO;Hotel
+TURISMO;Viagem
 VIA_VERDE;Via Verde
+VIA_VERDE;Via Verde Auto-Estrada
 ELETRONICOS;Fnac Aeropuerto
 ELETRONICOS;Fnac Vasco Da Gama
+ELETRONICOS;Fnac
+ELETRONICOS;Media Markt
+ELETRONICOS;Worten
 PRESENTE;Ba5-aerop Lisboa T1
+PRESENTE;Presente
+PRESENTE;Gift
 CABELO;The Barber Company
+CABELO;Barbearia
+CABELO;Cabeleireiro
+CABELO;Salão
 ARRENDAMENTO;Arrendamento
+ARRENDAMENTO;Aluguer
 ENERGIA;Edp Comercial Comercializacao De Energia S.a
+ENERGIA;EDP
+ENERGIA;Energia
+ENERGIA;Eletricidade
+ENERGIA;Gás
 ESTETICA;Transferência para Nr
+ESTETICA;Estética
+ESTETICA;Spa
+ESTETICA;Unhas
+ESTETICA;Cabelo
 ROUPA;Springfield Guimarae
+ROUPA;Zara
+ROUPA;H&M
+ROUPA;Pull&Bear
+ROUPA;Stradivarius
+ROUPA;Loja
 LAZER;Cinema NOS
 LAZER;Teatro
+LAZER;Cinema
+LAZER;Espetáculo
+LAZER;Concerto
+LAZER;Lazer
 DOACOES;Cruz Vermelha
 DOACOES;UNICEF
+DOACOES;Doação
+DOACOES;Caritas
 GINASIO;Gymnasio
 GINASIO;Fitness Hut
+GINASIO;Ginásio
+GINASIO;Academia
+GINASIO;Sport
+GINASIO;Fit
 EDUCACAO;Escola dos filhos
+EDUCACAO;Escola
+EDUCACAO;Universidade
+EDUCACAO;Curso
+EDUCACAO;Formação
 PERSONAL_TRAINER;Personal Trainer
+PERSONAL_TRAINER;Treino
 PORTAGEM;Portagem
+PORTAGEM;Portico
+PORTAGEM;Auto-Estrada
+PORTAGEM;Scut
 LAVANDERIA;Lavanderia
+LAVANDERIA;Lavandaria
+LAVANDERIA;Lavagem
 LAVA_RAPIDO;Lava Rápido
+LAVA_RAPIDO;Lava jato
+LAVA_RAPIDO;Car Wash
 BARBEIRO;Barbeiro
+BARBEIRO;Barbearia
 CARTAO;Cartão
+CARTAO;Credito
+CARTAO;Débito
 CONTABILISTA;Contabilista
+CONTABILISTA;Contabilidade
 IRS;IRS
+IRS;Finanças
+IRS;Imposto Renda
 SALARIO;Salário
+SALARIO;ordenado
+SALARIO;Vencimento
 SEGURANCA_SOCIAL;Segurança Social
