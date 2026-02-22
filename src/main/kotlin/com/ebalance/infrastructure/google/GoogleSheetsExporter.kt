@@ -3,7 +3,7 @@ package com.ebalance.infrastructure.google
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
-import com.ebalance.domain.error.TransactionRepositoryError
+import com.ebalance.domain.model.Category
 import com.ebalance.domain.model.Transaction
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.jackson2.JacksonFactory
@@ -14,7 +14,6 @@ import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.auth.oauth2.ServiceAccountCredentials
 import java.io.FileInputStream
-import java.io.InputStream
 import java.math.BigDecimal
 
 /**
@@ -61,19 +60,19 @@ class GoogleSheetsExporter(
             
             // Build the rows to insert
             val rows = transactions.map { transaction ->
-                val category = getCategoryName(transaction.categoryId)
+                val category = Category.fromId(transaction.categoryId)
                 val value = formatValue(transaction.value)
                 val date = formatDate(transaction.operatedAt)
-                val type = determineType(transaction.categoryId)
+                val type = if (Category.isFixedExpense(category)) "Fixa" else "Variáda"
                 
                 listOf(
-                    category,           // Categoria
-                    value,              // Valor
-                    bankAccount,        // Conta Bancária
-                    responsible,        // Responsável
-                    type,               // Tipo
+                    category.displayName,    // Categoria
+                    value,                  // Valor
+                    bankAccount,            // Conta Bancária
+                    responsible,            // Responsável
+                    type,                   // Tipo
                     transaction.description, // Observações
-                    date                // Data Pagamento
+                    date                    // Data Pagamento
                 )
             }
             
@@ -112,46 +111,8 @@ class GoogleSheetsExporter(
             .build()
     }
 
-    private fun getCategoryName(categoryId: Long): String {
-        return when (categoryId) {
-            0L -> "Desconhecida"
-            1L -> "Água"
-            2L -> "Capsulas café"
-            3L -> "Biscoitos"
-            4L -> "Produtos de limpeza"
-            5L -> "Escola dos filhos"
-            6L -> "Material de escritório"
-            7L -> "Restaurante"
-            8L -> "Obra em casa"
-            9L -> "Móveis de casa (menos cama)"
-            10L -> "Decoração de casa"
-            11L -> "Eletrodoméstico (menos máquina lavar/secar roupa)"
-            12L -> "Telecomunicações"
-            13L -> "Conta de Energia"
-            14L -> "Passe transporte (marido/esposa e filhos)"
-            15L -> "Hotéis"
-            16L -> "Passagens aéreas"
-            17L -> "Educação, livros, aulas, cursos material didático (filhos incluidos)"
-            18L -> "Taxa bancária"
-            19L -> "Plano de saúde"
-            20L -> "Ingressos de parques"
-            21L -> "Ingressos de cinema"
-            22L -> "Ingressos de museu"
-            23L -> "Vinho/whisky/bebidas brancas"
-            24L -> "Táxi/uber"
-            25L -> "Aluguer apartamento"
-            26L -> "Material eletronico (televisao, telemovel, computador, etc)"
-            27L -> "Contabilista"
-            28L -> "Advogados"
-            29L -> "Seguros"
-            30L -> "Combustível"
-            31L -> "Roupa"
-            else -> "Desconhecida"
-        }
-    }
-
     private fun formatValue(value: BigDecimal): String {
-        // Format as negative for expenses (e.g., -€17,50)
+        // Format as €X.XX (always positive for display)
         val absValue = value.abs()
         return "€${absValue.toPlainString()}"
     }
@@ -159,24 +120,6 @@ class GoogleSheetsExporter(
     private fun formatDate(date: java.time.LocalDate): String {
         // Format as DD/MM/YYYY
         return "${date.dayOfMonth.toString().padStart(2, '0')}/${date.monthValue.toString().padStart(2, '0')}/${date.year}"
-    }
-
-    private fun determineType(categoryId: Long): String {
-        // Categories that are typically fixed expenses
-        val fixedCategories = setOf(
-            1L,  // Água
-            5L,  // Escola dos filhos
-            12L, // Telecomunicações
-            13L, // Conta de Energia
-            14L, // Passe transporte
-            18L, // Taxa bancária
-            19L, // Plano de saúde
-            25L, // Aluguer apartamento
-            27L, // Contabilista
-            28L, // Advogados
-            29L  // Seguros
-        )
-        return if (categoryId in fixedCategories) "Fixa" else "Variáda"
     }
 
     data class ExportResult(
