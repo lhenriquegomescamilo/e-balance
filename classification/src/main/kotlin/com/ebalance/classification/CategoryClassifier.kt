@@ -12,7 +12,8 @@ import java.io.InputStream
  */
 class CategoryClassifier(
     private val modelPath: String = "model.zip",
-    private val datasetPath: String = "classpath:dataset/category.for.training.csv"
+    private val datasetPath: String = "classpath:dataset/category.for.training.csv",
+    private val labelToId: (String) -> Long = { label -> label.toLongOrNull() ?: 0L }
 ) {
     private val log = LoggerFactory.getLogger(CategoryClassifier::class.java)
     
@@ -66,13 +67,17 @@ class CategoryClassifier(
         }
 
         return try {
-            val (categoryId, confidence) = textClassifier.predictWithScore(
+            val (label, confidence) = textClassifier.predictWithScore(
                 text = description,
-                unknown = "0" to 0.0,
+                unknown = "DESCONHECIDA" to 0.0,
                 aiThreshold = 0.70
             )
+            
+            // Convert label to category ID using the provided function
+            val categoryId = labelToId(label)
+            
             ClassificationResult(
-                categoryId = categoryId.toLongOrNull() ?: 0L,
+                categoryId = categoryId,
                 confidence = confidence
             ).right()
         } catch (e: Exception) {

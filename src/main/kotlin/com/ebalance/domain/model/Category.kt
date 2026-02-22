@@ -29,7 +29,7 @@ enum class Category(val id: Long, val displayName: String) {
     BARBEIRO(21, "Barbeiro"),
     VIA_VERDE(22, "Via Verde"),
     SEGURO_DE_CARRO(23, "Seguro de carro"),
-    DOACOES(24, "Doaçoes"),
+    DOACOES(24, "Doações"),
     ASSINATURAS(25, "Assinaturas"),
     TAXA_BANCARIA(26, "Taxa Bancária"),
     TURISMO(27, "Turismo"),
@@ -48,7 +48,8 @@ enum class Category(val id: Long, val displayName: String) {
     IMPOSTO(40, "Imposto"),
     EDUCACAO(41, "Educação"),
     SEGURO(42, "Seguro"),
-    TRANSFERENCIAS_BRASIL(43, "Transferências Brasil");
+    TRANSFERENCIAS_BRASIL(43, "Transferências Brasil"),
+    GINASIO(44, "Ginásio");
 
     companion object {
         /**
@@ -58,13 +59,19 @@ enum class Category(val id: Long, val displayName: String) {
             entries.find { it.id == id } ?: DESCONHECIDA
 
         /**
+         * Returns the category by its display name.
+         */
+        fun fromDisplayName(name: String): Category =
+            entries.find { it.displayName.equals(name, ignoreCase = true) } ?: DESCONHECIDA
+
+        /**
          * Returns true if this category is a fixed expense.
          */
         fun isFixedExpense(category: Category): Boolean = when (category) {
             MORADIA, ESCOLA_DOS_FILHOS, CONTABILISTA, ARRENDAMENTO,
             TELEFONIA, ENERGIA, AGUA, PERSONAL_TRAINER, VIA_VERDE,
             SEGURO_DE_CARRO, ASSINATURAS, TAXA_BANCARIA, SEGURO,
-            SEGURANCA_SOCIAL, IRS, SALARIO -> true
+            SEGURANCA_SOCIAL, IRS, SALARIO, GINASIO, CARTAO -> true
             else -> false
         }
     }

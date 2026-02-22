@@ -1,55 +1,84 @@
-UNKNOWN;Flysafeb Unipessoal Lda
-UNKNOWN;Flysafeb Lda
-WATER;Auchan Retail Portugal, S.A.
-WATER;Auchan Portugal, S.A.
-HOME_FURNITURE;Ikea Portugal Moveis e Decoração Lda
-HOME_FURNITURE;Ikea Moveis e Decoração Lda
-ACCOUNTANT;Moneyflow, Lda
-ACCOUNTANT;Moneyflow
-TELECOMMUNICATIONS;Nos Comunicações S A
-TELECOMMUNICATIONS;Nos S A
-FUEL;Alfabrent Combustiveis Lda
-FUEL;Alfabrent Lda
-TELECOMMUNICATIONS;Vodafone Portugal - Comunicações Pessoais S A
-TELECOMMUNICATIONS;Vodafone Portugal - Comunicações S A
-CLOTHING;Lojas Primark Portugal - Exploração Gestão e Administração de Espaços Comerciais S A
-CLOTHING;Lojas Primark Portugal - Exploração Gestão e  S A
-RESTAURANT;Corrida D  - Lda
-RESTAURANT;Corrida D Ingredientes - Lda
-RESTAURANT;Templesushi Guimarães Lda
-RESTAURANT;Templesushi Guimarães
-RESTAURANT;Gustavo Tavares Saudade Costa
-RESTAURANT;Gustavo Tavares Costa
-HOME_RENOVATION;Bcm Bricolage S A
-HOME_RENOVATION;Bcm S A
-RESTAURANT;Sabores da Duna - Lda
-RESTAURANT;Sabores Duna - Lda
-RESTAURANT;Pasta Sabores - Restauração Lda
-RESTAURANT;Pasta - Restauração Lda
-RESTAURANT;Mar Cobellini, Unipessoal, Lda
-RESTAURANT;Mar Cobellini, Lda
-RESTAURANT;Requinte Prodigioso Lda
-RESTAURANT;Requinte Prod Lda
-RESTAURANT;Sabores de Viana - Restauração Lda
-RESTAURANT;Sabores - Restauração Lda
-RESTAURANT;Areas Portugal - Restauração e Distribuição Sa
-RESTAURANT;Areas Portugal e Distribuição Sa
-RESTAURANT;Massive Taste - Lda
-RESTAURANT;Massive - Lda
-RESTAURANT;Fcwb - First Class Wine Bar Lda
-RESTAURANT;Fcwb - First Class Lda
-ELECTRONICS;Fnac Portugal - Actividades Culturais e Distribuição de Livros, Discos Multimédia e Produtos Técnicos, Sociedade Unipessoal Lda
-ELECTRONICS;Fnac Portugal - Discos Multimédia e Produtos Técnicos, Sociedade Unipessoal Lda
-RESTAURANT;Nei & Joice - Restauração Lda
-RESTAURANT;Nei & Joice - Lda
-RESTAURANT;Uber Eats Portugal Unipessoal Lda
-RESTAURANT;Uber Eats Portugal Lda
-RESTAURANT;Uber Eats Portugal Unipessoal
-RESTAURANT;Bruna Prometti Lopes Unessential Lda
-RESTAURANT;Bruna Prometti Lopes Lda
-BANK_FEES;Banco Santander Totta S A
-BANK_FEES;Banco Santander S A
-FLIGHTS;Transportes Aereos Portugueses S A
-FLIGHTS;Transportes Aereos S A
-INSURANCE;Mapfre Santander Portugal - Companhia de Seguros, S.A.
-INSURANCE;Mapfre Santander Portugal - S.A.
+HOSPITAL;Hospital Da Luz Sa
+COMBUSTIVEL;Posto Garzzo
+COMBUSTIVEL;Alfabrent
+COMBUSTIVEL;Bp Prior Velho
+TRANSPORTE;Uber Trip
+TRANSPORTE;Uber* Trip
+TRANSPORTE;Uber
+SEGURANCA_SOCIAL;Aegon Santander Portugal Nao Vida
+RESTAURANTE;Mcdonalds
+RESTAURANTE;Choco Val
+RESTAURANTE;Fabrisa Mariano Ribei
+RESTAURANTE;Espetinhojapao
+RESTAURANTE;R F H Paraiso Doces
+RESTAURANTE;Fausto E Manoel
+RESTAURANTE;Macdonalds Aeropuerto
+RESTAURANTE;Sr Frango Guia
+RESTAURANTE;Nei E Joice Rest
+RESTAURANTE;Brisa Areas Servico
+RESTAURANTE;La Mafia Sienta Mesa
+RESTAURANTE;Rebelo E Dias De
+RESTAURANTE;Capricciosa Expo
+RESTAURANTE;Sabores D Maria
+RESTAURANTE;Rosa Da Cunha Castro
+RESTAURANTE;Ret El Caminito
+RESTAURANTE;Cbbhp-hotels-in-port
+ASSINATURAS;Netflix
+ASSINATURAS;Spotify
+ASSINATURAS;Google Youtube Member
+ASSINATURAS;Jetbrains Americas Inc
+ASSINATURAS;Google Youtubepremium
+ASSINATURAS;Pilgrim App
+ASSINATURAS;Apple
+FARMACIA;Atacadao Drogacenter
+TRANSFERENCIAS_BRASIL;Transferwise
+TRANSFERENCIAS_BRASIL;Wise
+TRANSFERENCIAS_BRASIL;Transferência para Jose Carlos Nogueira Lima
+TELEFONIA;Nos Comunicacoes
+TELEFONIA;Airalo
+MORADIA;Amazon Br
+MORADIA;Havan Valparaiso De Go
+MORADIA;Hiper Casa
+DELIVERY;Sushiloko
+DELIVERY;Bolt
+DELIVERY;Rest Sushi Rao
+INVESTIMENTO;Coinbase Ireland Limited
+INVESTIMENTO;Transferência para Jose Carlos Nogueira Lima
+IMPOSTO;Trf. Cobr DUC
+LEVANTAMENTO;Transferência para Nr
+CARRO;321 Credito
+CARRO;Carpneu
+TAXA_BANCARIA;Imposto do Selo
+TAXA_BANCARIA;Comissão de manutenção de conta pacote
+TAXA_BANCARIA;Comissão Trf Cred Sepa
+TURISMO;Cars On Booking
+TURISMO;Hotel At Booking
+TURISMO;Aero Sleep Campinas
+TURISMO;Flysafeb
+TURISMO;Ale-hop Aeropuerto T1
+VIA_VERDE;Via Verde
+ELETRONICOS;Fnac Aeropuerto
+ELETRONICOS;Fnac Vasco Da Gama
+PRESENTE;Ba5-aerop Lisboa T1
+CABELO;The Barber Company
+ARRENDAMENTO;Arrendamento
+ENERGIA;Edp Comercial Comercializacao De Energia S.a
+ESTETICA;Transferência para Nr
+ROUPA;Springfield Guimarae
+LAZER;Easypay
+DOACOES;Easypay
+SEGURO_DE_CARRO;Mapfre Asistenci
+SUPERMERCADO;Pingo Doce Quinta Mo
+SUPERMERCADO;Lidl Agradece
+GINASIO;Easypay
+EDUCACAO;Escola dos filhos
+PERSONAL_TRAINER;Personal Trainer
+PORTAGEM;Portagem
+LAVANDERIA;Lavanderia
+LAVA_RAPIDO;Lava Rápido
+BARBEIRO;Barbeiro
+CARTAO;Cartão
+CONTABILISTA;Contabilista
+IRS;IRS
+SALARIO;Salário
+SEGURANCA_SOCIAL;Segurança Social

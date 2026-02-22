@@ -31,7 +31,7 @@ INSERT INTO category (name) VALUES
        ('Barbeiro'),
        ('Via Verde'),
        ('Seguro de carro'),
-       ('Doaçoes'),
+       ('Doações'),
        ('Assinaturas'),
        ('Taxa Bancária'),
        ('Turismo'),
@@ -50,7 +50,8 @@ INSERT INTO category (name) VALUES
        ('Imposto'),
        ('Educação'),
        ('Seguro'),
-       ('Transferências Brasil');
+       ('Transferências Brasil'),
+       ('Ginásio');
 
 -- Add category_id column to transactions
 ALTER TABLE transactions ADD COLUMN category_id INTEGER DEFAULT 0;
