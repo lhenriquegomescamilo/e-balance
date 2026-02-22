@@ -323,6 +323,58 @@ val transactions = TestFixtures.aListOfTransactions(5)
 ./build/install/e-balance/bin/e-balance --help
 ```
 
+### Import Command
+
+```bash
+# Import transactions from Excel file
+./gradlew run --args="import /path/to/transactions.xls"
+
+# With custom database
+./gradlew run --args="--db my-database.db import /path/to/transactions.xls"
+
+# Train the ML classifier (required before first import)
+./gradlew run --args="train"
+./gradlew run --args="--dataset /path/to/custom-dataset.csv train"
+```
+
+### Export Command
+
+Export transactions to Google Sheets. Creates a separate sheet for each Month/Year.
+
+```bash
+# Export all transactions to Google Sheets
+./gradlew run --args="export <SPREADSHEET_ID>"
+
+# With custom credentials file
+./gradlew run --args="--credentials /path/to/credentials.json export <SPREADSHEET_ID>"
+
+# With custom bank account and responsible
+./gradlew run --args="-b 'Nubank' -r 'John Doe' export <SPREADSHEET_ID>"
+```
+
+**Features:**
+- Groups transactions by Month/Year (e.g., "02/2026", "01/2026")
+- Creates a new sheet for each Month/Year if it doesn't exist
+- Appends to existing sheet if it already exists
+- Columns: Categoria | Valor | Conta Bancária | Responsável | Tipo | Observações | Data Pagamento
+
+**Get Spreadsheet ID:**
+From the URL: `https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit`
+
+### Train Command
+
+Train the ML classifier model.
+
+```bash
+# Train with default dataset
+./gradlew run --args="train"
+
+# Train with custom dataset
+./gradlew run --args="--dataset /path/to/dataset.csv train"
+```
+
+The model is saved to `model.zip` and used automatically during import.
+
 ### Database Operations
 
 ```bash
