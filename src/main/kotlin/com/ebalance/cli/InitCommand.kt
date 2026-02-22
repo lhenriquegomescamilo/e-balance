@@ -22,9 +22,9 @@ class InitCommand : CliktCommand() {
     override fun help(context: Context): String = "E-Balance: Personal finance transaction manager"
 
     override fun run() {
-        // Run database migrations at startup
+        // Initialize database (create file + run migrations)
         echo("Initializing database: $dbPath")
-        DatabaseFactory.runMigrations(dbPath)
+        DatabaseFactory.initialize(dbPath)
         
         // Wire up dependencies
         val transactionReader = ExcelTransactionReader(Dispatchers.IO)
