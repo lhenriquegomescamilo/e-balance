@@ -47,6 +47,9 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 
 # Train with custom model path (overrides default model.zip)
 ./gradlew run --args="train --model /custom/path/model.zip"
+
+# Export transactions to Google Sheets
+./gradlew run --args="export <SPREADSHEET_ID>"
 ```
 
 ### Using Distribution (without Gradle)
@@ -72,6 +75,12 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 
 # Train with custom model path (overrides default model.zip)
 ./build/install/e-balance/bin/e-balance train --model /custom/path/model.zip
+
+# Export transactions to Google Sheets
+./build/install/e-balance/bin/e-balance export <SPREADSHEET_ID>
+
+# Export with custom bank account and responsible
+./build/install/e-balance/bin/e-balance export <SPREADSHEET_ID> --bank-account "Novo Banco" --responsible "Maria"
 
 # Show help
 ./build/install/e-balance/bin/e-balance --help
@@ -125,6 +134,66 @@ The tool expects Excel files with the following structure:
 | E | Saldo (Balance in EUR) | `578.96` |
 
 **Date Format:** `DD-MM-YYYY`
+
+## Google Sheets Export
+
+### Prerequisites
+
+1. **Create a Google Cloud Project**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project
+
+2. **Enable Google Sheets API**:
+   - Go to "APIs & Services" > "Library"
+   - Search for "Google Sheets API" and enable it
+
+3. **Create Service Account Credentials**:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "Service Account"
+   - Fill in the details and create the account
+   - Once created, go to the "Keys" tab
+   - Click "Add Key" > "Create new key" > "JSON"
+   - Save the JSON file as `credentials.json` in your project directory
+
+4. **Share Your Spreadsheet**:
+   - Open your Google Sheet
+   - Click "Share"
+   - Add the service account email (found in your JSON file) as an editor
+
+### Export Command
+
+The export command maps transactions to the following spreadsheet columns:
+
+| Column | Description | Source |
+|--------|-------------|--------|
+| A | Categoria | Classified category (from ML model) |
+| B | Valor | Transaction amount (€X.XX format) |
+| C | Conta Bancária | Bank account (default: Santander) |
+| D | Responsável | Responsible person (default: Luis Camilo) |
+| E | Tipo | Type: "Fixa" or "Variáda" (based on category) |
+| F | Observações | Transaction description |
+| G | Data Pagamento | Payment date (DD/MM/YYYY) |
+
+```bash
+# Basic export (exports all transactions from database)
+./build/install/e-balance/bin/e-balance export <SPREADSHEET_ID>
+
+# With custom credentials file
+./build/install/e-balance/bin/e-balance export <SPREADSHEET_ID> --credentials /path/to/credentials.json
+
+# With custom bank account and responsible
+./build/install/e-balance/bin/e-balance export <SPREADSHEET_ID> --bank-account "Novo Banco" --responsible "Maria"
+```
+
+### Finding Your Spreadsheet ID
+
+The spreadsheet ID is found in the URL:
+```
+https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit
+```
+
+Example: If URL is `https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit`
+Then the spreadsheet ID is: `1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms`
 
 ## Database Schema
 
@@ -268,6 +337,9 @@ result.fold(
 | Kotlinx Coroutines | 1.8.0 | Async operations |
 | Arrow Core | 2.0.1 | Functional error handling |
 | DL4j | 1.0.0-M2.1 | ML classifier (ParagraphVectors) |
+| Google API Client | 2.0.0 | Google APIs client |
+| Google Sheets API | v4-rev612-1.25.0 | Google Sheets integration |
+| Google Auth Library | 1.16.0 | OAuth2 authentication |
 | Kotest | 6.1.3 | Testing framework |
 | MockK | 1.14.9 | Mocking library |
 

@@ -19,6 +19,9 @@ tasks.jar {
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    // Enable zip64 for large JARs (Google API dependencies)
+    isZip64 = true
 }
 repositories {
     mavenCentral()
@@ -29,6 +32,12 @@ repositories {
 dependencies {
     // Project modules
     implementation(project(":classification"))
+
+    // Google Sheets API
+    implementation("com.google.api-client:google-api-client:2.0.0")
+    implementation("com.google.apis:google-api-services-sheets:v4-rev612-1.25.0")
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.16.0")
+    implementation("com.google.http-client:google-http-client-jackson2:1.43.3")
 
     implementation("com.github.ajalt.clikt:clikt:5.0.1")
 
