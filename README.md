@@ -10,7 +10,7 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 - SQLite database with Flyway migrations
 - Database initialized automatically on first run
 
-## Prerequisites
+# Prerequisites
 
 - JDK 17+
 - Gradle 8.x (included via wrapper)
@@ -23,6 +23,38 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 
 # Create distribution
 ./gradlew installDist
+```
+
+## Using the Orchestration Script
+
+The `ebalance.sh` script automates the entire workflow:
+
+```bash
+# Make it executable (first time only)
+chmod +x ebalance.sh
+
+# Full workflow: build + train + import + export
+./ebalance.sh -t dataset.csv -i transactions.xls -s <SPREADSHEET_ID>
+
+# Build only
+./ebalance.sh --build-only
+
+# Skip training (use existing model)
+./ebalance.sh -i transactions.xls -s <SPREADSHEET_ID> --skip-training
+
+# Import only (skip training and export)
+./ebalance.sh -i transactions.xls
+
+# Custom paths
+./ebalance.sh \
+    --db mydb.db \
+    --model mymodel.zip \
+    --credentials my-credentials.json \
+    --training dataset.csv \
+    --input transactions.xls \
+    --spreadsheet 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms \
+    --bank-account "Novo Banco" \
+    --responsible "Maria"
 ```
 
 ## Usage
