@@ -1,4 +1,5 @@
 src/main/resources/.tmp
+e-balance.db
 
 # Created by https://www.toptal.com/developers/gitignore/api/gradle,kotlin,jetbrains+all
 # Edit at https://www.toptal.com/developers/gitignore?templates=gradle,kotlin,jetbrains+all
