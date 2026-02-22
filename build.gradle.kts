@@ -31,12 +31,24 @@ dependencies {
     // optional support for rendering markdown in help messages
     implementation("com.github.ajalt.clikt:clikt-markdown:5.0.1")
 
+    // Apache POI for Excel processing
     implementation("org.apache.poi:poi:5.5.1")
+    implementation("org.apache.poi:poi-scratchpad:5.5.1")
+
+    // SQLite
+    implementation("org.xerial:sqlite-jdbc:3.45.2.0")
+
+    // Flyway for database migrations
+    implementation("org.flywaydb:flyway-core:10.10.0")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
     testImplementation(kotlin("test"))
     testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("io.kotest:kotest-assertions-core:6.1.3")
     testImplementation("io.kotest:kotest-property:6.1.3")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
 
 }
 

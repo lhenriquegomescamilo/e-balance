@@ -4,8 +4,8 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 data class Transaction(
-    private val operatedAt: LocalDate,
-    private val description: String,
-    private val value: BigDecimal,
-    private val balance: BigDecimal
+    val operatedAt: LocalDate,
+    val description: String,
+    val value: BigDecimal,
+    val balance: BigDecimal
 )
