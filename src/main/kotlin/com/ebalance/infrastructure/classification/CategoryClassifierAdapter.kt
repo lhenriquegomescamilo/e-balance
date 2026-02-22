@@ -2,6 +2,7 @@ package com.ebalance.infrastructure.classification
 
 import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.classification.CategoryClassifier
+import org.slf4j.LoggerFactory
 
 /**
  * Adapter that wraps CategoryClassifier to implement the CategoryClassifierPort interface.
@@ -12,6 +13,8 @@ class CategoryClassifierAdapter(
     private val labelToId: (String) -> Long = { label -> label.toLongOrNull() ?: 0L }
 ) : CategoryClassifierPort {
 
+    private val log = LoggerFactory.getLogger(CategoryClassifierAdapter::class.java)
+
     private val classifier: CategoryClassifier = CategoryClassifier(
         modelPath = modelPath,
         labelToId = labelToId
@@ -20,19 +23,31 @@ class CategoryClassifierAdapter(
     override fun isModelLoaded(): Boolean = classifier.isModelLoaded()
 
     override fun loadModel(): Boolean {
-        return classifier.load().isRight()
+        log.debug("Loading classification model...")
+        val result = classifier.load()
+        if (result.isRight()) {
+            log.info("Classification model loaded successfully")
+            return true
+        } else {
+            log.error("Failed to load classification model: ${result.leftOrNull()}")
+            return false
+        }
     }
 
     override fun classify(description: String): CategoryClassifierPort.ClassificationResult {
+        log.debug("Adapter classifying: '$description'")
         val result = classifier.classify(description)
         return if (result.isRight()) {
             result.getOrNull()!!.let {
-                CategoryClassifierPort.ClassificationResult(
+                val classificationResult = CategoryClassifierPort.ClassificationResult(
                     categoryId = it.categoryId,
                     confidence = it.confidence
                 )
+                log.debug("Adapter classification result: $classificationResult")
+                classificationResult
             }
         } else {
+            log.error("Classification failed for '$description': ${result.leftOrNull()}")
             // Return default unknown category on error
             CategoryClassifierPort.ClassificationResult(
                 categoryId = 0L,
@@ -42,6 +57,9 @@ class CategoryClassifierAdapter(
     }
 
     override fun classifyAll(descriptions: List<String>): List<CategoryClassifierPort.ClassificationResult> {
-        return descriptions.map { classify(it) }
+        log.info("Batch classifying ${descriptions.size} descriptions")
+        val results = descriptions.map { classify(it) }
+        log.info("Batch classification completed: ${results.size} results")
+        return results
     }
 }

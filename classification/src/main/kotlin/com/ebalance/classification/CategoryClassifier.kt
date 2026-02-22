@@ -38,10 +38,18 @@ class CategoryClassifier(
      * @return Either<ClassificationError, Unit>
      */
     fun load(): Either<ClassificationError, Unit> {
+        log.debug("Loading model from: $modelPath")
         return try {
             textClassifier.load()
-            Unit.right()
+            if (textClassifier.isModelLoaded()) {
+                log.info("Model loaded successfully")
+                Unit.right()
+            } else {
+                log.warn("Model failed to load")
+                ClassificationError.ModelLoadErr("Model failed to load").left()
+            }
         } catch (e: Exception) {
+            log.error("Failed to load model: ${e.message}", e)
             ClassificationError.ModelLoadErr(e.message ?: "Unknown error loading model").left()
         }
     }
@@ -57,12 +65,16 @@ class CategoryClassifier(
      * @return Either<ClassificationError, ClassificationResult>
      */
     fun classify(description: String): Either<ClassificationError, ClassificationResult> {
+        log.debug("Classifying: '$description'")
+        
         // Ensure model is loaded
         if (!isModelLoaded()) {
+            log.debug("Model not loaded, attempting to load...")
             load()
         }
         
         if (!isModelLoaded()) {
+            log.error("Model not loaded - cannot classify")
             return ClassificationError.ModelNotLoadedErr("Model not loaded - run training first").left()
         }
 
@@ -76,11 +88,18 @@ class CategoryClassifier(
             // Convert label to category ID using the provided function
             val categoryId = labelToId(label)
             
+            if (label == "DESCONHECIDA") {
+                log.warn("CLASSIFICATION FAILED - '$description' -> DESCONHECIDA (confidence: ${"%.2f".format(confidence * 100)}%)")
+            } else {
+                log.info("CLASSIFIED - '$description' -> $label (id: $categoryId, confidence: ${"%.2f".format(confidence * 100)}%)")
+            }
+            
             ClassificationResult(
                 categoryId = categoryId,
                 confidence = confidence
             ).right()
         } catch (e: Exception) {
+            log.error("Classification error for '$description': ${e.message}", e)
             ClassificationError.ClassificationErr(e.message ?: "Unknown classification error").left()
         }
     }

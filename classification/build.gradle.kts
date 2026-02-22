@@ -29,7 +29,10 @@ dependencies {
     implementation("org.nd4j:nd4j-native:$dl4jVersion:macosx-arm64")
     implementation("org.bytedeco:openblas:0.3.19-1.5.7:macosx-arm64")
 
-    // Logging (required to see what's happening)
+    // Logging
+    implementation("org.slf4j:slf4j-api:2.0.9")
+    runtimeOnly("ch.qos.logback:logback-classic:1.4.14")
+
     testImplementation(kotlin("test"))
 }
 

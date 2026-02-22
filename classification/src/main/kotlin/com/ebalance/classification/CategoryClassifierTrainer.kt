@@ -43,6 +43,7 @@ class CategoryClassifierTrainer(
      */
     fun trainFromStream(inputStream: InputStream): Either<TrainingError, TrainingResult> {
         return try {
+            log.info("Loading dataset from stream...")
             val maps: Map<String, String> = inputStream.bufferedReader().use { reader ->
                 reader
                     .lineSequence()
@@ -53,17 +54,21 @@ class CategoryClassifierTrainer(
                     }
             }
             
-            log.info("Training for dataset with ${maps.size} entries")
+            log.info("Dataset loaded: ${maps.size} entries")
+            
+            // Log category distribution
+            val categoryDistribution = maps.values.groupingBy { it }.eachCount()
+            log.debug("Category distribution: $categoryDistribution")
             
             val dataset = maps.toList()
             val textClassifier = TextClassifier(modelPath = modelPath)
             textClassifier.train(dataset)
             
-            log.info("Classifier trained for dataset with ${maps.size} entries")
+            log.info("Classifier trained successfully with ${maps.size} entries")
             
             TrainingResult(entries = maps.size).right()
         } catch (e: Exception) {
-            log.error("Training failed", e)
+            log.error("Training failed: ${e.message}", e)
             TrainingError.TrainProcessErr(e.message ?: "Unknown training error").left()
         }
     }

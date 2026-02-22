@@ -10,14 +10,18 @@ import org.deeplearning4j.text.sentenceiterator.SentencePreProcessor
 import org.deeplearning4j.text.sentenceiterator.labelaware.LabelAwareSentenceIterator
 import org.deeplearning4j.text.tokenization.tokenizer.preprocessor.CommonPreprocessor
 import org.deeplearning4j.text.tokenization.tokenizerfactory.DefaultTokenizerFactory
+import org.slf4j.LoggerFactory
 
 class TextClassifier(
-    private val learningRate: Double = 0.025,
-    private val minLearningRate: Double = 0.001,
-    private val epochs: Int = 1000,
-    private val layerSize: Int = 100,
+    private val learningRate: Double = 0.05,
+    private val minLearningRate: Double = 0.0001,
+    private val epochs: Int = 500,
+    private val layerSize: Int = 200,
+    private val windowSize: Int = 5,
     private val modelPath: String = "model.zip"
 ) {
+
+    private val log = LoggerFactory.getLogger(TextClassifier::class.java)
 
     private val businessStopWords = setOf(
         "lda", "l d a", "Lda", "Unipessoal", "unipessoal", "sa", "s.a.", "s a", "limitada", "sociedade",
@@ -39,12 +43,12 @@ class TextClassifier(
      */
     private fun cleanText(text: String): String {
         return text.lowercase()
+            .removeAccents()
             .replace(Regex("[^a-z0-9\\s]"), "") // Remove punctuation/symbols
             .split(" ")
             .filter { it !in businessStopWords && it.isNotBlank() }
             .joinToString(" ")
-            .filter { it.isLetter() }
-            .removeAccents()
+            .trim()
     }
 
 
@@ -78,8 +82,12 @@ class TextClassifier(
     }
 
     fun train(dataset: List<Pair<String, String>>) {
+        log.info("Starting model training with ${dataset.size} samples")
+        log.debug("Training parameters: learningRate=$learningRate, minLearningRate=$minLearningRate, epochs=$epochs, layerSize=$layerSize, windowSize=$windowSize")
+        
         // 1. Pre-clean the dataset
         this.cleanedTrainingData = dataset.map { cleanText(it.first) to it.second }
+        log.debug("Cleaned ${cleanedTrainingData.size} training samples")
 
         val iterator = SimpleIterator(cleanedTrainingData)
 
@@ -87,31 +95,46 @@ class TextClassifier(
             .learningRate(learningRate)
             .minLearningRate(minLearningRate)
             .batchSize(cleanedTrainingData.size)
-            .epochs(epochs) // Increased epochs slightly for better stability on small data
+            .epochs(epochs)
             .layerSize(layerSize)
+            .windowSize(windowSize)
             .iterate(iterator)
             .trainWordVectors(true)
             .tokenizerFactory(tokenizerFactory)
             .stopWords(businessStopWords.toList())
+            .seed(42L)
             .build()
 
+        log.debug("Fitting ParagraphVectors model...")
         paragraphVectors.fit()
+        log.info("Model training completed. Vocabulary size: ${paragraphVectors.vocab().numWords()}")
 
         // Persist the trained model
         runCatching {
             WordVectorSerializer.writeParagraphVectors(paragraphVectors, File(modelPath))
-        }.onFailure { it.printStackTrace() }
+            log.info("Model saved to: $modelPath")
+        }.onFailure { 
+            log.error("Failed to save model to $modelPath", it)
+            it.printStackTrace() 
+        }
     }
 
     fun load() {
         val f = File(modelPath)
         if (f.exists()) {
+            log.debug("Loading model from: $modelPath")
             runCatching {
                 WordVectorSerializer.readParagraphVectors(f).also {
                     it.tokenizerFactory = tokenizerFactory
                     paragraphVectors = it
+                    log.info("Model loaded successfully. Vocabulary size: ${paragraphVectors.vocab().numWords()}")
                 }
-            }.onFailure { it.printStackTrace() }
+            }.onFailure { 
+                log.error("Failed to load model from $modelPath", it)
+                it.printStackTrace() 
+            }
+        } else {
+            log.warn("Model file not found: $modelPath")
         }
     }
 
@@ -123,17 +146,26 @@ class TextClassifier(
         aiThreshold: Double = 0.70
     ): Pair<String, Double> {
 
+        log.debug("Classifying input: '$text'")
+
         // Ensure model is loaded
         if (!::paragraphVectors.isInitialized) {
+            log.debug("Model not initialized, loading...")
             load()
         }
-        if (!::paragraphVectors.isInitialized) return unknown
+        if (!::paragraphVectors.isInitialized) {
+            log.warn("Model failed to load, returning unknown")
+            return unknown
+        }
 
         val cleanedInput = cleanText(text)
+        log.debug("Cleaned input: '$cleanedInput'")
 
         // 1. Check if model knows the words
         val tokens = tokenizerFactory.create(cleanedInput).tokens
+        log.debug("Tokenized: $tokens")
         val knownWords = tokens.filter { paragraphVectors.vocab().containsWord(it) }
+        log.debug("Known words: $knownWords")
 
         var aiLabel = "0"
         var aiScore = 0.0
@@ -143,17 +175,32 @@ class TextClassifier(
             aiScore = runCatching {
                 paragraphVectors.similarityToLabel(cleanedInput, aiLabel)
             }.getOrDefault(0.0)
+            log.debug("ML prediction: label=$aiLabel, score=$aiScore")
+        } else {
+            log.debug("No known words found, skipping ML classification")
         }
 
         // 2. Fallback to Fuzzy Matching if AI is unconfident or words are unknown
         if (aiScore < aiThreshold) {
+            log.debug("AI score $aiScore below threshold $aiThreshold, trying fuzzy matching...")
             val fuzzyMatch = findBestFuzzyMatch(cleanedInput)
             if (fuzzyMatch != null && fuzzyMatch.second > 0.70) { // 70% string similarity required
+                log.debug("Fuzzy match found: label=${fuzzyMatch.first}, similarity=${fuzzyMatch.second}")
                 return fuzzyMatch
+            } else {
+                log.debug("No fuzzy match found with sufficient similarity")
             }
         }
 
-        return if (aiScore >= aiThreshold) aiLabel to aiScore else unknown
+        val result = if (aiScore >= aiThreshold) aiLabel to aiScore else unknown
+        
+        if (result.first == "0") {
+            log.info("CLASSIFICATION FAILED - '$text' -> unknown (score: ${result.second})")
+        } else {
+            log.info("CLASSIFIED - '$text' -> ${result.first} (confidence: ${"%.2f".format(result.second * 100)}%)")
+        }
+        
+        return result
     }
 
     private fun findBestFuzzyMatch(text: String): Pair<String, Double>? {
@@ -165,5 +212,53 @@ class TextClassifier(
             val similarity = if (maxLength == 0) 0.0 else (1.0 - (distance.toDouble() / maxLength))
             label to similarity
         }.maxByOrNull { it.second }
+    }
+
+    /**
+     * Validates the model on a test dataset and returns accuracy metrics.
+     * @param testDataset List of (text, expectedLabel) pairs to validate
+     * @return ValidationResult with accuracy and misclassified samples
+     */
+    fun validate(testDataset: List<Pair<String, String>>): ValidationResult {
+        if (!::paragraphVectors.isInitialized) {
+            load()
+        }
+        if (!::paragraphVectors.isInitialized) {
+            return ValidationResult(0.0, testDataset.size, testDataset.map { it.first to (it.second to "MODEL_NOT_LOADED") })
+        }
+
+        var correct = 0
+        val misclassified = mutableListOf<Pair<String, Pair<String, String>>>()
+
+        for ((text, expectedLabel) in testDataset) {
+            val (predictedLabel, score) = predictWithScore(text)
+            if (predictedLabel == expectedLabel) {
+                correct++
+            } else {
+                misclassified.add(text to (expectedLabel to predictedLabel))
+            }
+        }
+
+        val accuracy = if (testDataset.isNotEmpty()) correct.toDouble() / testDataset.size else 0.0
+        return ValidationResult(accuracy, testDataset.size, misclassified)
+    }
+
+    data class ValidationResult(
+        val accuracy: Double,
+        val totalSamples: Int,
+        val misclassified: List<Pair<String, Pair<String, String>>>
+    ) {
+        fun printReport() {
+            println("=== Model Validation Report ===")
+            println("Accuracy: ${"%.2f".format(accuracy * 100)}% (${
+                (totalSamples - misclassified.size)
+            }/$totalSamples)")
+            if (misclassified.isNotEmpty()) {
+                println("\nMisclassified samples:")
+                misclassified.forEach { (text, labels) ->
+                    println("  '$text' - Expected: ${labels.first}, Got: ${labels.second}")
+                }
+            }
+        }
     }
 }
