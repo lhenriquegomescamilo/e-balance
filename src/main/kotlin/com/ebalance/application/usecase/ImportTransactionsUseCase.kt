@@ -3,9 +3,9 @@ package com.ebalance.application.usecase
 import arrow.core.Either
 import arrow.core.raise.either
 import arrow.core.raise.ensure
+import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.application.port.TransactionReader
 import com.ebalance.application.port.TransactionRepository
-import com.ebalance.classification.CategoryClassifier
 import com.ebalance.domain.error.ImportError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,7 +18,7 @@ import java.io.InputStream
 class ImportTransactionsUseCase(
     private val transactionReader: TransactionReader,
     private val transactionRepository: TransactionRepository,
-    private val classifier: CategoryClassifier? = null,
+    private val classifier: CategoryClassifierPort? = null,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO
 ) {
     /**
@@ -45,17 +45,17 @@ class ImportTransactionsUseCase(
                 .mapLeft { ImportError.ReadError(it) }
                 .bind()
             
-            // Validate that we have transactions to import
+            // Validate that we have transactions to import (allow empty to pass through)
             ensure(transactions.isNotEmpty() || true) { 
                 ImportError.EmptyInput("No transactions found in input") 
             }
             
             // Classify transactions if classifier is available
-            val classifiedTransactions = if (classifier != null) {
+            val classifiedTransactions = if (classifier != null && classifier.isModelLoaded()) {
                 transactions.map { transaction ->
                     val classificationResult = classifier.classify(transaction.description)
                     transaction.copy(
-                        categoryId = classificationResult.getOrNull()?.categoryId ?: 0
+                        categoryId = classificationResult.categoryId
                     )
                 }
             } else {
@@ -71,7 +71,7 @@ class ImportTransactionsUseCase(
                 totalRead = transactions.size,
                 totalInserted = saveResult.inserted,
                 duplicatesSkipped = saveResult.duplicates,
-                classifiedCount = if (classifier != null) transactions.size else 0
+                classifiedCount = if (classifier != null && classifier.isModelLoaded()) transactions.size else 0
             )
         }
     }

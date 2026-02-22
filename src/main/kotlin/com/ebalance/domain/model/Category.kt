@@ -65,6 +65,12 @@ enum class Category(val id: Long, val displayName: String) {
             entries.find { it.displayName.equals(name, ignoreCase = true) } ?: DESCONHECIDA
 
         /**
+         * Returns the category by its enum name.
+         */
+        fun fromEnumName(name: String): Category =
+            entries.find { it.name.equals(name, ignoreCase = true) } ?: DESCONHECIDA
+
+        /**
          * Returns true if this category is a fixed expense.
          */
         fun isFixedExpense(category: Category): Boolean = when (category) {

@@ -1,9 +1,10 @@
 package com.ebalance.cli
 
+import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.application.port.TransactionRepository
 import com.ebalance.application.usecase.ImportTransactionsUseCase
-import com.ebalance.classification.CategoryClassifier
 import com.ebalance.domain.model.Category
+import com.ebalance.infrastructure.classification.CategoryClassifierAdapter
 import com.ebalance.infrastructure.excel.ExcelTransactionReader
 import com.ebalance.infrastructure.persistence.DatabaseFactory
 import com.ebalance.infrastructure.persistence.SQLiteTransactionRepository
@@ -34,11 +35,15 @@ class InitCommand : CliktCommand() {
         
         // Label to ID converter function
         val labelToId: (String) -> Long = { label ->
-            Category.entries.find { it.name == label }?.id ?: 0L
+            Category.fromEnumName(label).id
         }
         
-        // Initialize classifier (if model exists)
-        val classifier = CategoryClassifier(modelPath = modelPath, labelToId = labelToId)
+        // Initialize classifier adapter (port implementation)
+        val classifier: CategoryClassifierPort = CategoryClassifierAdapter(
+            modelPath = modelPath,
+            labelToId = labelToId
+        )
+        
         if (classifier.isModelLoaded()) {
             echo("Classifier model loaded: $modelPath")
         } else {
