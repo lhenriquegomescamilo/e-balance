@@ -122,7 +122,7 @@ class TextClassifier(
     fun load() {
         val f = File(modelPath)
         if (f.exists()) {
-            log.debug("Loading model from: $modelPath")
+            log.info("Loading model from: $modelPath")
             runCatching {
                 WordVectorSerializer.readParagraphVectors(f).also {
                     it.tokenizerFactory = tokenizerFactory
@@ -192,15 +192,7 @@ class TextClassifier(
             }
         }
 
-        val result = if (aiScore >= aiThreshold) aiLabel to aiScore else unknown
-        
-        if (result.first == "0") {
-            log.info("CLASSIFICATION FAILED - '$text' -> unknown (score: ${result.second})")
-        } else {
-            log.info("CLASSIFIED - '$text' -> ${result.first} (confidence: ${"%.2f".format(result.second * 100)}%)")
-        }
-        
-        return result
+        return takeIf { aiScore >= aiThreshold }?.let { aiLabel to aiScore } ?: unknown
     }
 
     private fun findBestFuzzyMatch(text: String): Pair<String, Double>? {

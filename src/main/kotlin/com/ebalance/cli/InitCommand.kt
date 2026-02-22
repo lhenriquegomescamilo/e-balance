@@ -44,7 +44,10 @@ class InitCommand : CliktCommand() {
             labelToId = labelToId
         )
         
-        if (classifier.isModelLoaded()) {
+        // Try to load the model
+        val modelLoaded = classifier.loadModel()
+        
+        if (modelLoaded) {
             echo("Classifier model loaded: $modelPath")
         } else {
             echo("Note: No classifier model found at $modelPath")

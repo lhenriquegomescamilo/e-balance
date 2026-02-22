@@ -25,13 +25,7 @@ class CategoryClassifierAdapter(
     override fun loadModel(): Boolean {
         log.debug("Loading classification model...")
         val result = classifier.load()
-        if (result.isRight()) {
-            log.info("Classification model loaded successfully")
-            return true
-        } else {
-            log.error("Failed to load classification model: ${result.leftOrNull()}")
-            return false
-        }
+        return result.isRight()
     }
 
     override fun classify(description: String): CategoryClassifierPort.ClassificationResult {
@@ -43,7 +37,7 @@ class CategoryClassifierAdapter(
                     categoryId = it.categoryId,
                     confidence = it.confidence
                 )
-                log.debug("Adapter classification result: $classificationResult")
+                log.debug("Adapter classification result: {}", classificationResult)
                 classificationResult
             }
         } else {

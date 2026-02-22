@@ -2,6 +2,8 @@ package com.ebalance.classification
 
 import arrow.core.Either
 import arrow.core.left
+import arrow.core.raise.either
+import arrow.core.raise.ensure
 import arrow.core.right
 import org.slf4j.LoggerFactory
 import java.io.InputStream
@@ -12,18 +14,11 @@ import java.io.InputStream
  */
 class CategoryClassifier(
     private val modelPath: String = "model.zip",
-    private val datasetPath: String = "classpath:dataset/category.for.training.csv",
     private val labelToId: (String) -> Long = { label -> label.toLongOrNull() ?: 0L }
 ) {
     private val log = LoggerFactory.getLogger(CategoryClassifier::class.java)
-    
+
     private val textClassifier: TextClassifier = TextClassifier(modelPath = modelPath)
-    
-    private val businessStopWords = setOf(
-        "lda", "l d a", "Lda", "Unipessoal", "unipessoal", "sa", "s.a.", "s a", "limitada", "sociedade",
-        "portugal", "portuguesa", "e", "de", "da", "do", "das", "dos", "com",
-        "comunicacoes", "actividades", "gestao", "administracao", "servicos"
-    )
 
     /**
      * Result of classification.
@@ -37,21 +32,14 @@ class CategoryClassifier(
      * Loads the trained model from disk.
      * @return Either<ClassificationError, Unit>
      */
-    fun load(): Either<ClassificationError, Unit> {
+    fun load(): Either<ClassificationError, Unit> = either {
         log.debug("Loading model from: $modelPath")
-        return try {
-            textClassifier.load()
-            if (textClassifier.isModelLoaded()) {
-                log.info("Model loaded successfully")
-                Unit.right()
-            } else {
-                log.warn("Model failed to load")
-                ClassificationError.ModelLoadErr("Model failed to load").left()
-            }
-        } catch (e: Exception) {
-            log.error("Failed to load model: ${e.message}", e)
-            ClassificationError.ModelLoadErr(e.message ?: "Unknown error loading model").left()
-        }
+        val load = runCatching { textClassifier.load() }
+            .map { textClassifier.isModelLoaded() }
+            .onSuccess { log.info("Model loaded successfully") }
+            .onFailure { log.warn("Model failed to load") }
+
+        ensure(load.isSuccess && load.getOrNull() == true) { ClassificationError.ModelLoadErr("Model failed to load") }
     }
 
     /**
@@ -66,13 +54,13 @@ class CategoryClassifier(
      */
     fun classify(description: String): Either<ClassificationError, ClassificationResult> {
         log.debug("Classifying: '$description'")
-        
+
         // Ensure model is loaded
         if (!isModelLoaded()) {
             log.debug("Model not loaded, attempting to load...")
             load()
         }
-        
+
         if (!isModelLoaded()) {
             log.error("Model not loaded - cannot classify")
             return ClassificationError.ModelNotLoadedErr("Model not loaded - run training first").left()
@@ -84,16 +72,10 @@ class CategoryClassifier(
                 unknown = "DESCONHECIDA" to 0.0,
                 aiThreshold = 0.70
             )
-            
+
             // Convert label to category ID using the provided function
             val categoryId = labelToId(label)
-            
-            if (label == "DESCONHECIDA") {
-                log.warn("CLASSIFICATION FAILED - '$description' -> DESCONHECIDA (confidence: ${"%.2f".format(confidence * 100)}%)")
-            } else {
-                log.info("CLASSIFIED - '$description' -> $label (id: $categoryId, confidence: ${"%.2f".format(confidence * 100)}%)")
-            }
-            
+
             ClassificationResult(
                 categoryId = categoryId,
                 confidence = confidence
