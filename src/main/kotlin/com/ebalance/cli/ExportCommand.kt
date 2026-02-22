@@ -88,10 +88,15 @@ class ExportCommand : CliktCommand(name = "export") {
                             echo("Error: $message", err = true)
                         },
                         ifRight = { result ->
+                            val sheetInfo = result.sheetResults.joinToString("\n") { sheet ->
+                                "  - ${sheet.sheetName}: ${sheet.exported} transactions (rows ${sheet.startRow}-${sheet.endRow})"
+                            }
                             echo("""
                                 |Export completed successfully!
-                                |  Exported: ${result.exported} transactions
-                                |  Rows: ${result.startRow} to ${result.endRow}
+                                |  Total exported: ${result.exported} transactions
+                                |
+                                |Sheets:
+                                |$sheetInfo
                             """.trimMargin())
                         }
                     )

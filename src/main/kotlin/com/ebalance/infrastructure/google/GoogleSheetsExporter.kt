@@ -9,12 +9,17 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.jackson2.JacksonFactory
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.SheetsScopes
+import com.google.api.services.sheets.v4.model.AddSheetRequest
+import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest
+import com.google.api.services.sheets.v4.model.Request
+import com.google.api.services.sheets.v4.model.SheetProperties
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.google.auth.http.HttpCredentialsAdapter
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.auth.oauth2.ServiceAccountCredentials
 import java.io.FileInputStream
 import java.math.BigDecimal
+import java.time.format.DateTimeFormatter
 
 /**
  * Service for exporting transactions to Google Sheets.
@@ -26,6 +31,7 @@ class GoogleSheetsExporter(
     companion object {
         private const val APPLICATION_NAME = "E-Balance"
         private val SCOPES = listOf(SheetsScopes.SPREADSHEETS)
+        private val MONTH_YEAR_FORMATTER = DateTimeFormatter.ofPattern("MM/yyyy")
     }
 
     private val httpTransport = GoogleNetHttpTransport.newTrustedTransport()
@@ -33,7 +39,8 @@ class GoogleSheetsExporter(
 
     /**
      * Exports transactions to Google Sheets.
-     * Maps transactions to the expense tracking spreadsheet format:
+     * Groups transactions by Month/Year and creates/updates sheets accordingly.
+     * Each sheet contains:
      * Column A: Categoria (Category)
      * Column B: Valor (Amount)
      * Column C: Conta Bancária (Bank Account)
@@ -50,53 +57,104 @@ class GoogleSheetsExporter(
         return try {
             val service = buildService()
             
-            // Get existing data to find where to append
-            val range = "A:G"
-            val existingData = service.spreadsheets().values()
-                .get(spreadsheetId, range)
-                .execute()
-            
-            val startRow = (existingData.values?.size ?: 0) + 1
-            
-            // Build the rows to insert
-            val rows = transactions.map { transaction ->
-                val category = Category.fromId(transaction.categoryId)
-                val value = formatValue(transaction.value)
-                val date = formatDate(transaction.operatedAt)
-                val type = if (Category.isFixedExpense(category)) "Fixa" else "Variáda"
-                
-                listOf(
-                    category.displayName,    // Categoria
-                    value,                  // Valor
-                    bankAccount,            // Conta Bancária
-                    responsible,            // Responsável
-                    type,                   // Tipo
-                    transaction.description, // Observações
-                    date                    // Data Pagamento
-                )
+            // Group transactions by Month/Year
+            val transactionsByMonth = transactions.groupBy { transaction ->
+                transaction.operatedAt.format(MONTH_YEAR_FORMATTER)
             }
             
-            if (rows.isEmpty()) {
+            var totalExported = 0
+            val sheetResults = mutableListOf<SheetExportResult>()
+            
+            for ((monthYear, monthTransactions) in transactionsByMonth) {
+                val sheetName = monthYear
+                
+                // Check if sheet exists, create if not
+                val sheetId = getOrCreateSheet(service, sheetName)
+                
+                // Get existing data in that sheet to find where to append
+                val existingData = service.spreadsheets().values()
+                    .get(spreadsheetId, "$sheetName!A:G")
+                    .execute()
+                
+                val startRow = (existingData.values?.size ?: 0) + 1
+                
+                // Build the rows to insert
+                val rows = monthTransactions.map { transaction ->
+                    val category = Category.fromId(transaction.categoryId)
+                    val value = formatValue(transaction.value)
+                    val date = formatDate(transaction.operatedAt)
+                    val type = if (Category.isFixedExpense(category)) "Fixa" else "Variáda"
+                    
+                    listOf(
+                        category.displayName,    // Categoria
+                        value,                  // Valor
+                        bankAccount,            // Conta Bancária
+                        responsible,            // Responsável
+                        type,                   // Tipo
+                        transaction.description, // Observações
+                        date                    // Data Pagamento
+                    )
+                }
+                
+                if (rows.isNotEmpty()) {
+                    // Append the data
+                    val valueRange = ValueRange()
+                        .setValues(rows.map { row -> row.map { it.toString() } })
+                    
+                    service.spreadsheets().values()
+                        .append(spreadsheetId, "$sheetName!A:G", valueRange)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute()
+                    
+                    sheetResults.add(
+                        SheetExportResult(
+                            sheetName = sheetName,
+                            exported = monthTransactions.size,
+                            startRow = startRow,
+                            endRow = startRow + monthTransactions.size - 1
+                        )
+                    )
+                    totalExported += monthTransactions.size
+                }
+            }
+            
+            if (totalExported == 0) {
                 return GoogleSheetsError.NoDataToExport("No transactions to export").left()
             }
             
-            // Append the data
-            val valueRange = ValueRange()
-                .setValues(rows.map { row -> row.map { it.toString() } })
-            
-            service.spreadsheets().values()
-                .append(spreadsheetId, range, valueRange)
-                .setValueInputOption("USER_ENTERED")
-                .execute()
-            
             ExportResult(
-                exported = transactions.size,
-                startRow = startRow,
-                endRow = startRow + transactions.size - 1
+                exported = totalExported,
+                sheetResults = sheetResults
             ).right()
         } catch (e: Exception) {
             GoogleSheetsError.ExportError(e.message ?: "Unknown export error").left()
         }
+    }
+
+    /**
+     * Gets an existing sheet by name or creates a new one if it doesn't exist.
+     * @return The sheet ID
+     */
+    private fun getOrCreateSheet(service: Sheets, sheetName: String): Int {
+        val spreadsheet = service.spreadsheets().get(spreadsheetId).execute()
+        
+        // Check if sheet already exists
+        val existingSheet = spreadsheet.sheets?.find { it.properties?.title == sheetName }
+        if (existingSheet != null) {
+            return existingSheet.properties?.sheetId ?: 0
+        }
+        
+        // Add the new sheet
+        val addSheetRequest = AddSheetRequest()
+            .setProperties(SheetProperties().setTitle(sheetName))
+        
+        val batchUpdateRequest = BatchUpdateSpreadsheetRequest()
+            .setRequests(listOf(Request().setAddSheet(addSheetRequest)))
+        
+        service.spreadsheets().batchUpdate(spreadsheetId, batchUpdateRequest).execute()
+        
+        // Return a new sheet ID (typically incremented from existing sheets)
+        return (spreadsheet.sheets?.size ?: 1) + 1
     }
 
     private fun buildService(): Sheets {
@@ -123,6 +181,12 @@ class GoogleSheetsExporter(
     }
 
     data class ExportResult(
+        val exported: Int,
+        val sheetResults: List<SheetExportResult>
+    )
+
+    data class SheetExportResult(
+        val sheetName: String,
         val exported: Int,
         val startRow: Int,
         val endRow: Int
