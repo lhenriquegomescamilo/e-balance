@@ -55,7 +55,7 @@ enum class Category(val id: Long, val displayName: String) {
         /**
          * Returns the category by its ID.
          */
-        fun fromId(id: Long): Category = 
+        fun fromId(id: Long): Category =
             entries.find { it.id == id } ?: DESCONHECIDA
 
         /**
@@ -78,7 +78,10 @@ enum class Category(val id: Long, val displayName: String) {
             TELEFONIA, ENERGIA, AGUA, PERSONAL_TRAINER, VIA_VERDE,
             SEGURO_DE_CARRO, ASSINATURAS, TAXA_BANCARIA, SEGURO,
             SEGURANCA_SOCIAL, IRS, SALARIO, GINASIO, CARTAO -> true
+
             else -> false
         }
     }
 }
+/**
+ */

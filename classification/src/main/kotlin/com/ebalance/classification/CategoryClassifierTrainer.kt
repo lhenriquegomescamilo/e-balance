@@ -58,7 +58,7 @@ class CategoryClassifierTrainer(
             
             // Log category distribution
             val categoryDistribution = maps.values.groupingBy { it }.eachCount()
-            log.debug("Category distribution: $categoryDistribution")
+            log.debug("Category distribution: {}", categoryDistribution)
             
             val dataset = maps.toList()
             val textClassifier = TextClassifier(modelPath = modelPath)

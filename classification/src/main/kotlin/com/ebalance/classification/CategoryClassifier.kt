@@ -16,15 +16,8 @@ class CategoryClassifier(
     private val labelToId: (String) -> Long = { label -> label.toLongOrNull() ?: 0L }
 ) {
     private val log = LoggerFactory.getLogger(CategoryClassifier::class.java)
-    
-    private val textClassifier: TextClassifier = TextClassifier(modelPath = modelPath)
-    
-    private val businessStopWords = setOf(
-        "lda", "l d a", "Lda", "Unipessoal", "unipessoal", "sa", "s.a.", "s a", "limitada", "sociedade",
-        "portugal", "portuguesa", "e", "de", "da", "do", "das", "dos", "com",
-        "comunicacoes", "actividades", "gestao", "administracao", "servicos"
-    )
 
+    private val textClassifier: TextClassifier = TextClassifier(modelPath = modelPath)
     /**
      * Result of classification.
      */
@@ -66,13 +59,13 @@ class CategoryClassifier(
      */
     fun classify(description: String): Either<ClassificationError, ClassificationResult> {
         log.debug("Classifying: '$description'")
-        
+
         // Ensure model is loaded
         if (!isModelLoaded()) {
             log.debug("Model not loaded, attempting to load...")
             load()
         }
-        
+
         if (!isModelLoaded()) {
             log.error("Model not loaded - cannot classify")
             return ClassificationError.ModelNotLoadedErr("Model not loaded - run training first").left()
@@ -84,16 +77,10 @@ class CategoryClassifier(
                 unknown = "DESCONHECIDA" to 0.0,
                 aiThreshold = 0.70
             )
-            
+
             // Convert label to category ID using the provided function
             val categoryId = labelToId(label)
-            
-            if (label == "DESCONHECIDA") {
-                log.warn("CLASSIFICATION FAILED - '$description' -> DESCONHECIDA (confidence: ${"%.2f".format(confidence * 100)}%)")
-            } else {
-                log.info("CLASSIFIED - '$description' -> $label (id: $categoryId, confidence: ${"%.2f".format(confidence * 100)}%)")
-            }
-            
+
             ClassificationResult(
                 categoryId = categoryId,
                 confidence = confidence
