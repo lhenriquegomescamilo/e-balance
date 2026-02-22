@@ -59,9 +59,10 @@ class ImportTransactionsUseCase(
                 ?.let {
                     buildList {
                         for (transaction in transactions) {
-                            val transactionClassified = classifier.classify(transaction.description)
-                            log.info("Classified transaction: ${transaction.description} -> $transactionClassified")
-                            add(transaction)
+                            val classificationResult = classifier.classify(transaction.description)
+                            log.info("Classified transaction: ${transaction.description} -> $classificationResult")
+                            // Update transaction with classified category
+                            add(transaction.copy(categoryId = classificationResult.categoryId))
                         }
                     }
                 }
