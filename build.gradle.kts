@@ -1,10 +1,25 @@
 plugins {
     kotlin("jvm") version "2.3.0"
+    application
 }
 
-group = "eg.zaidi.onboarding"
+group = "com.ebalance"
 version = "1.0-SNAPSHOT"
 
+
+application {
+    mainClass.set("com.ebalance.MainKt")
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "com.ebalance.MainKt"
+    }
+    // This line collects all dependencies and adds them to the JAR
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
 repositories {
     mavenCentral()
 }

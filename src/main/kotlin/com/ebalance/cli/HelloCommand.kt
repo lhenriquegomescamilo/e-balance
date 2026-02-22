@@ -1,4 +1,4 @@
-package eg.zaidi.onboarding.com.ebalance.application
+package com.ebalance.cli
 
 import com.github.ajalt.clikt.core.CliktCommand
 
