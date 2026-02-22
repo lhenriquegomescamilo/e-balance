@@ -45,7 +45,7 @@ class DatabaseFactoryTest : DescribeSpec({
                             "SELECT COUNT(*) FROM flyway_schema_history"
                         )
                         rs.next()
-                        rs.getInt(1) shouldBe 1 // One migration should have run
+                        rs.getInt(1) shouldBe 2 // Two migrations should have run (V1 and V2)
                     }
                 }
             }

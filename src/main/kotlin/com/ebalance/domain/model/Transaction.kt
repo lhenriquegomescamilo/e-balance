@@ -7,5 +7,6 @@ data class Transaction(
     val operatedAt: LocalDate,
     val description: String,
     val value: BigDecimal,
-    val balance: BigDecimal
+    val balance: BigDecimal,
+    val categoryId: Long = 0
 )

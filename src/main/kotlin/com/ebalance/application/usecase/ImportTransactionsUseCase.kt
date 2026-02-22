@@ -5,6 +5,7 @@ import arrow.core.raise.either
 import arrow.core.raise.ensure
 import com.ebalance.application.port.TransactionReader
 import com.ebalance.application.port.TransactionRepository
+import com.ebalance.classification.CategoryClassifier
 import com.ebalance.domain.error.ImportError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -12,11 +13,12 @@ import java.io.InputStream
 
 /**
  * Use case for importing transactions from an external source into the repository.
- * Orchestrates reading and persistence operations.
+ * Orchestrates reading, classification, and persistence operations.
  */
 class ImportTransactionsUseCase(
     private val transactionReader: TransactionReader,
     private val transactionRepository: TransactionRepository,
+    private val classifier: CategoryClassifier? = null,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO
 ) {
     /**
@@ -25,7 +27,8 @@ class ImportTransactionsUseCase(
     data class Result(
         val totalRead: Int,
         val totalInserted: Int,
-        val duplicatesSkipped: Int
+        val duplicatesSkipped: Int,
+        val classifiedCount: Int = 0
     )
 
     /**
@@ -47,15 +50,28 @@ class ImportTransactionsUseCase(
                 ImportError.EmptyInput("No transactions found in input") 
             }
             
+            // Classify transactions if classifier is available
+            val classifiedTransactions = if (classifier != null) {
+                transactions.map { transaction ->
+                    val classificationResult = classifier.classify(transaction.description)
+                    transaction.copy(
+                        categoryId = classificationResult.getOrNull()?.categoryId ?: 0
+                    )
+                }
+            } else {
+                transactions
+            }
+            
             // Save transactions to the repository
-            val saveResult = transactionRepository.saveAll(transactions)
+            val saveResult = transactionRepository.saveAll(classifiedTransactions)
                 .mapLeft { ImportError.PersistenceError(it) }
                 .bind()
             
             Result(
                 totalRead = transactions.size,
                 totalInserted = saveResult.inserted,
-                duplicatesSkipped = saveResult.duplicates
+                duplicatesSkipped = saveResult.duplicates,
+                classifiedCount = if (classifier != null) transactions.size else 0
             )
         }
     }

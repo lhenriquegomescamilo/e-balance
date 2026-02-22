@@ -2,6 +2,7 @@ package com.ebalance.cli
 
 import com.ebalance.application.port.TransactionRepository
 import com.ebalance.application.usecase.ImportTransactionsUseCase
+import com.ebalance.classification.CategoryClassifier
 import com.ebalance.infrastructure.excel.ExcelTransactionReader
 import com.ebalance.infrastructure.persistence.DatabaseFactory
 import com.ebalance.infrastructure.persistence.SQLiteTransactionRepository
@@ -19,6 +20,10 @@ class InitCommand : CliktCommand() {
         .default("e-balance.db")
         .help("Path to SQLite database file")
 
+    private val modelPath: String by option("--model", "-m")
+        .default("model.zip")
+        .help("Path to the trained classifier model")
+
     override fun help(context: Context): String = "E-Balance: Personal finance transaction manager"
 
     override fun run() {
@@ -26,10 +31,24 @@ class InitCommand : CliktCommand() {
         echo("Initializing database: $dbPath")
         DatabaseFactory.initialize(dbPath)
         
+        // Initialize classifier (if model exists)
+        val classifier = CategoryClassifier(modelPath = modelPath)
+        if (classifier.isModelLoaded()) {
+            echo("Classifier model loaded: $modelPath")
+        } else {
+            echo("Note: No classifier model found at $modelPath")
+            echo("      Run 'ebalance train' to train the classifier first")
+        }
+        
         // Wire up dependencies
         val transactionReader = ExcelTransactionReader(Dispatchers.IO)
         val transactionRepository: TransactionRepository = SQLiteTransactionRepository(dbPath, Dispatchers.IO)
-        val importUseCase = ImportTransactionsUseCase(transactionReader, transactionRepository, Dispatchers.IO)
+        val importUseCase = ImportTransactionsUseCase(
+            transactionReader, 
+            transactionRepository, 
+            classifier,
+            Dispatchers.IO
+        )
         
         // Make dependencies available to subcommands via context
         currentContext.obj = Dependencies(importUseCase, transactionRepository)

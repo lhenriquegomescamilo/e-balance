@@ -22,9 +22,13 @@ tasks.jar {
 }
 repositories {
     mavenCentral()
+    google()
+    maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots") }
 }
 
 dependencies {
+    // Project modules
+    implementation(project(":classification"))
 
     implementation("com.github.ajalt.clikt:clikt:5.0.1")
 

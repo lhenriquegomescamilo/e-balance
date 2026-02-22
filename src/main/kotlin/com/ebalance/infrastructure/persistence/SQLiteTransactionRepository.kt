@@ -41,8 +41,8 @@ class SQLiteTransactionRepository(
                 
                 conn.use {
                     val sql = """
-                        INSERT OR IGNORE INTO transactions (operated_at, description, value, balance)
-                        VALUES (?, ?, ?, ?)
+                        INSERT OR IGNORE INTO transactions (operated_at, description, value, balance, category_id)
+                        VALUES (?, ?, ?, ?, ?)
                     """.trimIndent()
                     
                     executeInsert(it, sql, transaction).bind()
@@ -96,6 +96,7 @@ class SQLiteTransactionRepository(
                 stmt.setString(2, transaction.description)
                 stmt.setBigDecimal(3, transaction.value)
                 stmt.setBigDecimal(4, transaction.balance)
+                stmt.setLong(5, transaction.categoryId)
                 
                 stmt.executeUpdate() > 0
             }
@@ -117,8 +118,8 @@ class SQLiteTransactionRepository(
             conn.autoCommit = false
             
             val sql = """
-                INSERT OR IGNORE INTO transactions (operated_at, description, value, balance)
-                VALUES (?, ?, ?, ?)
+                INSERT OR IGNORE INTO transactions (operated_at, description, value, balance, category_id)
+                VALUES (?, ?, ?, ?, ?)
             """.trimIndent()
             
             val insertedCount = conn.prepareStatement(sql).use { stmt ->
@@ -127,6 +128,7 @@ class SQLiteTransactionRepository(
                     stmt.setString(2, transaction.description)
                     stmt.setBigDecimal(3, transaction.value)
                     stmt.setBigDecimal(4, transaction.balance)
+                    stmt.setLong(5, transaction.categoryId)
                     stmt.executeUpdate()
                 }
             }
@@ -167,7 +169,7 @@ class SQLiteTransactionRepository(
     private fun executeFindAll(conn: Connection): Either<TransactionRepositoryError.QueryError, List<Transaction>> = 
         runCatching {
             conn.prepareStatement(
-                "SELECT operated_at, description, value, balance FROM transactions ORDER BY operated_at DESC"
+                "SELECT operated_at, description, value, balance, category_id FROM transactions ORDER BY operated_at DESC"
             ).use { stmt ->
                 stmt.executeQuery().use { rs ->
                     // Use generateSequence to lazily iterate over ResultSet
@@ -177,7 +179,8 @@ class SQLiteTransactionRepository(
                                 operatedAt = java.time.LocalDate.parse(resultSet.getString("operated_at")),
                                 description = resultSet.getString("description"),
                                 value = resultSet.getBigDecimal("value"),
-                                balance = resultSet.getBigDecimal("balance")
+                                balance = resultSet.getBigDecimal("balance"),
+                                categoryId = resultSet.getLong("category_id")
                             )
                         }
                         .toList()

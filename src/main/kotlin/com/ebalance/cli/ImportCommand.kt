@@ -44,11 +44,17 @@ class ImportCommand : CliktCommand(name = "import") {
                 result.fold(
                     ifLeft = { error -> handleError(error) },
                     ifRight = { success -> 
+                        val classificationInfo = if (success.classifiedCount > 0) {
+                            """
+                            |  Classified:     ${success.classifiedCount}
+                            """.trimMargin()
+                        } else ""
                         echo("""
                             |Import completed:
                             |  Total read:      ${success.totalRead}
                             |  Inserted:        ${success.totalInserted}
                             |  Duplicates:      ${success.duplicatesSkipped}
+                            $classificationInfo
                         """.trimMargin())
                     }
                 )

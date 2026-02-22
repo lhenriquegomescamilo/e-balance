@@ -12,6 +12,8 @@ repositories {
 }
 
 dependencies {
+    // Arrow for functional error handling
+    implementation("io.arrow-kt:arrow-core:2.0.1")
 
     val dl4jVersion = "1.0.0-M2.1"
 

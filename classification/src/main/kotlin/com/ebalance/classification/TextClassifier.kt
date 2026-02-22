@@ -115,6 +115,8 @@ class TextClassifier(
         }
     }
 
+    fun isModelLoaded(): Boolean = ::paragraphVectors.isInitialized
+
     fun predictWithScore(
         text: String,
         unknown: Pair<String, Double> = "0" to 0.0,

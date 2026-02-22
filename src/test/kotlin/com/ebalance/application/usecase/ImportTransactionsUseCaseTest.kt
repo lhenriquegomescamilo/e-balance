@@ -45,7 +45,7 @@ class ImportTransactionsUseCaseTest : DescribeSpec({
         beforeEach {
             reader = mockk()
             repository = mockk()
-            useCase = ImportTransactionsUseCase(reader, repository, testDispatcher)
+            useCase = ImportTransactionsUseCase(reader, repository, null, testDispatcher)
             inputStream = ByteArrayInputStream("test data".toByteArray())
         }
         
