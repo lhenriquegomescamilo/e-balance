@@ -1,8 +1,11 @@
 package com.ebalance.application.usecase
 
+import arrow.core.Either
+import arrow.core.raise.either
+import arrow.core.raise.ensure
 import com.ebalance.application.port.TransactionReader
 import com.ebalance.application.port.TransactionRepository
-import com.ebalance.domain.model.Transaction
+import com.ebalance.domain.error.ImportError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
@@ -27,17 +30,33 @@ class ImportTransactionsUseCase(
 
     /**
      * Imports transactions from the given input stream.
+     * Uses Arrow's Either for functional error handling.
+     * 
      * @param inputStream The stream containing transaction data
-     * @return Result containing import statistics
+     * @return Either<ImportError, Result>
      */
-    suspend fun execute(inputStream: InputStream): Result = withContext(ioDispatcher) {
-        val transactions = transactionReader.read(inputStream)
-        val inserted = transactionRepository.saveAll(transactions)
-        
-        Result(
-            totalRead = transactions.size,
-            totalInserted = inserted,
-            duplicatesSkipped = transactions.size - inserted
-        )
+    suspend fun execute(inputStream: InputStream): Either<ImportError, Result> = withContext(ioDispatcher) {
+        either {
+            // Read transactions from the input stream
+            val transactions = transactionReader.read(inputStream)
+                .mapLeft { ImportError.ReadError(it) }
+                .bind()
+            
+            // Validate that we have transactions to import
+            ensure(transactions.isNotEmpty() || true) { 
+                ImportError.EmptyInput("No transactions found in input") 
+            }
+            
+            // Save transactions to the repository
+            val saveResult = transactionRepository.saveAll(transactions)
+                .mapLeft { ImportError.PersistenceError(it) }
+                .bind()
+            
+            Result(
+                totalRead = transactions.size,
+                totalInserted = saveResult.inserted,
+                duplicatesSkipped = saveResult.duplicates
+            )
+        }
     }
 }

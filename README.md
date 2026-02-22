@@ -180,6 +180,33 @@ src/main/resources/
 - MockK (for mocking)
 - kotlinx-coroutines-test
 
+## Error Handling
+
+The application uses Arrow's `Either` for functional error handling with sealed error types:
+
+```kotlin
+// Error types are sealed classes for exhaustive pattern matching
+sealed class ImportError : DomainError {
+    data class ReadError(val error: TransactionReadError) : ImportError()
+    data class PersistenceError(val error: TransactionRepositoryError) : ImportError()
+    data class EmptyInput(override val message: String) : ImportError()
+}
+
+// Use case returns Either<ImportError, Result>
+suspend fun execute(inputStream: InputStream): Either<ImportError, Result>
+
+// Pattern match with fold
+result.fold(
+    ifLeft = { error -> handleError(error) },
+    ifRight = { success -> handleSuccess(success) }
+)
+```
+
+**Error Categories:**
+- `TransactionReadError` - File not found, invalid format, parse errors
+- `TransactionRepositoryError` - Connection, insert, query errors
+- `DatabaseError` - Creation, migration errors
+
 ## Dependencies
 
 | Dependency | Version | Purpose |
@@ -189,6 +216,7 @@ src/main/resources/
 | SQLite JDBC | 3.45.2.0 | Database driver |
 | Flyway | 10.10.0 | Database migrations |
 | Kotlinx Coroutines | 1.8.0 | Async operations |
+| Arrow Core | 2.0.1 | Functional error handling |
 | Kotest | 6.1.3 | Testing framework |
 | MockK | 1.14.9 | Mocking library |
 

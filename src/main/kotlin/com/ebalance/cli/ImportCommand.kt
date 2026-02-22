@@ -1,6 +1,10 @@
 package com.ebalance.cli
 
+import arrow.core.fold
 import com.ebalance.cli.InitCommand.Dependencies
+import com.ebalance.domain.error.ImportError
+import com.ebalance.domain.error.TransactionReadError
+import com.ebalance.domain.error.TransactionRepositoryError
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.requireObject
@@ -33,20 +37,47 @@ class ImportCommand : CliktCommand(name = "import") {
         echo("Importing transactions from: $inputFile")
 
         runBlocking {
-            try {
-                inputFile.inputStream().use { inputStream ->
-                    val result = importTransactionsUseCase.execute(inputStream)
-                    
-                    echo("""
-                        |Import completed:
-                        |  Total read:      ${result.totalRead}
-                        |  Inserted:        ${result.totalInserted}
-                        |  Duplicates:      ${result.duplicatesSkipped}
-                    """.trimMargin())
-                }
-            } catch (e: Exception) {
-                echo("Error during import: ${e.message}", err = true)
+            inputFile.inputStream().use { inputStream ->
+                val result = importTransactionsUseCase.execute(inputStream)
+                
+                // Handle the Either result using fold
+                result.fold(
+                    ifLeft = { error -> handleError(error) },
+                    ifRight = { success -> 
+                        echo("""
+                            |Import completed:
+                            |  Total read:      ${success.totalRead}
+                            |  Inserted:        ${success.totalInserted}
+                            |  Duplicates:      ${success.duplicatesSkipped}
+                        """.trimMargin())
+                    }
+                )
             }
         }
+    }
+    
+    /**
+     * Handles errors by mapping them to user-friendly messages.
+     */
+    private fun handleError(error: ImportError) {
+        val message = when (error) {
+            is ImportError.ReadError -> formatReadError(error.error)
+            is ImportError.PersistenceError -> formatRepositoryError(error.error)
+            is ImportError.EmptyInput -> "No transactions found in the input file"
+        }
+        echo("Error: $message", err = true)
+    }
+    
+    private fun formatReadError(error: TransactionReadError): String = when (error) {
+        is TransactionReadError.FileNotFound -> "File not found: ${error.path}"
+        is TransactionReadError.InvalidFormat -> "Invalid file format: ${error.message}"
+        is TransactionReadError.ParseError -> "Failed to parse row ${error.rowIndex}: ${error.message}"
+        is TransactionReadError.EmptyFile -> "The file contains no transaction data"
+    }
+    
+    private fun formatRepositoryError(error: TransactionRepositoryError): String = when (error) {
+        is TransactionRepositoryError.ConnectionError -> "Database connection error: ${error.message}"
+        is TransactionRepositoryError.InsertError -> "Failed to save transactions: ${error.message}"
+        is TransactionRepositoryError.QueryError -> "Database query error: ${error.message}"
     }
 }

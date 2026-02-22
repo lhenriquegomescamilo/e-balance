@@ -1,5 +1,6 @@
 package com.ebalance.infrastructure.persistence
 
+import arrow.core.fold
 import com.ebalance.TestFixtures
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -47,10 +48,16 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     
                     val result = repository.save(transaction)
                     
-                    result shouldBe true
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { inserted -> inserted shouldBe true }
+                    )
                     
                     val count = repository.count()
-                    count shouldBe 1L
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 1L }
+                    )
                 }
             }
             
@@ -61,10 +68,16 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     repository.save(transaction)
                     val result = repository.save(transaction)
                     
-                    result shouldBe false
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { inserted -> inserted shouldBe false }
+                    )
                     
                     val count = repository.count()
-                    count shouldBe 1L
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 1L }
+                    )
                 }
             }
             
@@ -77,7 +90,10 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     repository.save(transaction2)
                     
                     val count = repository.count()
-                    count shouldBe 2L
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 2L }
+                    )
                 }
             }
         }
@@ -90,8 +106,19 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     
                     val result = repository.saveAll(transactions)
                     
-                    result shouldBe 3
-                    repository.count() shouldBe 3L
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { saveResult ->
+                            saveResult.inserted shouldBe 3
+                            saveResult.duplicates shouldBe 0
+                        }
+                    )
+                    
+                    val count = repository.count()
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 3L }
+                    )
                 }
             }
             
@@ -102,8 +129,19 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     repository.saveAll(transactions)
                     val result = repository.saveAll(transactions)
                     
-                    result shouldBe 0
-                    repository.count() shouldBe 3L
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { saveResult ->
+                            saveResult.inserted shouldBe 0
+                            saveResult.duplicates shouldBe 3
+                        }
+                    )
+                    
+                    val count = repository.count()
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 3L }
+                    )
                 }
             }
             
@@ -111,7 +149,13 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                 runBlocking {
                     val result = repository.saveAll(emptyList())
                     
-                    result shouldBe 0
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { saveResult ->
+                            saveResult.inserted shouldBe 0
+                            saveResult.duplicates shouldBe 0
+                        }
+                    )
                 }
             }
         }
@@ -122,7 +166,10 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                 runBlocking {
                     val count = repository.count()
                     
-                    count shouldBe 0L
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 0L }
+                    )
                 }
             }
         }
@@ -133,7 +180,10 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                 runBlocking {
                     val result = repository.findAll()
                     
-                    result shouldBe emptyList()
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe emptyList() }
+                    )
                 }
             }
             
@@ -152,9 +202,14 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     
                     val result = repository.findAll()
                     
-                    result shouldHaveSize 2
-                    result[0].description shouldBe "Newer"
-                    result[1].description shouldBe "Older"
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions ->
+                            transactions shouldHaveSize 2
+                            transactions[0].description shouldBe "Newer"
+                            transactions[1].description shouldBe "Older"
+                        }
+                    )
                 }
             }
         }
@@ -174,8 +229,16 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     val duplicate = transaction.copy(balance = BigDecimal("999.00"))
                     val result = repository.save(duplicate)
                     
-                    result shouldBe false
-                    repository.count() shouldBe 1L
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { inserted -> inserted shouldBe false }
+                    )
+                    
+                    val count = repository.count()
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 1L }
+                    )
                 }
             }
             
@@ -193,8 +256,16 @@ class SQLiteTransactionRepositoryTest : DescribeSpec({
                     repository.save(transaction1)
                     val result = repository.save(transaction2)
                     
-                    result shouldBe true
-                    repository.count() shouldBe 2L
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { inserted -> inserted shouldBe true }
+                    )
+                    
+                    val count = repository.count()
+                    count.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { it shouldBe 2L }
+                    )
                 }
             }
         }

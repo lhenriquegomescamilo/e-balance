@@ -1,5 +1,7 @@
 package com.ebalance.application.port
 
+import arrow.core.Either
+import com.ebalance.domain.error.TransactionReadError
 import com.ebalance.domain.model.Transaction
 import java.io.InputStream
 
@@ -11,13 +13,7 @@ interface TransactionReader {
     /**
      * Reads transactions from the given input stream.
      * @param inputStream The stream containing transaction data
-     * @return List of parsed transactions
-     * @throws TransactionReadException if reading fails
+     * @return Either<TransactionReadError, List<Transaction>>
      */
-    suspend fun read(inputStream: InputStream): List<Transaction>
+    suspend fun read(inputStream: InputStream): Either<TransactionReadError, List<Transaction>>
 }
-
-/**
- * Exception thrown when transaction reading fails.
- */
-class TransactionReadException(message: String, cause: Throwable? = null) : Exception(message, cause)

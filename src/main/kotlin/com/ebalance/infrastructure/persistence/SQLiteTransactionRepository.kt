@@ -1,32 +1,96 @@
 package com.ebalance.infrastructure.persistence
 
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.raise.either
+import arrow.core.right
 import com.ebalance.application.port.TransactionRepository
+import com.ebalance.domain.error.TransactionRepositoryError
 import com.ebalance.domain.model.Transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.math.BigDecimal
 import java.sql.Connection
 import java.sql.DriverManager
-import javax.sql.DataSource
 
 /**
  * SQLite implementation of TransactionRepository.
  * Uses raw JDBC for simplicity with SQLite.
+ * Returns Either for all operations to handle errors functionally.
  */
 class SQLiteTransactionRepository(
     private val dbPath: String,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO
 ) : TransactionRepository {
 
-    private fun connection(): Connection = DriverManager.getConnection("jdbc:sqlite:$dbPath")
+    private fun connection(): Either<TransactionRepositoryError.ConnectionError, Connection> = 
+        runCatching { DriverManager.getConnection("jdbc:sqlite:$dbPath") }
+            .fold(
+                onSuccess = { it.right() },
+                onFailure = { e ->
+                    TransactionRepositoryError.ConnectionError(
+                        message = "Failed to connect to database: ${e.message}",
+                        cause = e
+                    ).left()
+                }
+            )
 
-    override suspend fun save(transaction: Transaction): Boolean = withContext(ioDispatcher) {
-        connection().use { conn ->
-            val sql = """
-                INSERT OR IGNORE INTO transactions (operated_at, description, value, balance)
-                VALUES (?, ?, ?, ?)
-            """.trimIndent()
+    override suspend fun save(transaction: Transaction): Either<TransactionRepositoryError, Boolean> = 
+        withContext(ioDispatcher) {
+            either {
+                val conn = connection().bind()
+                
+                conn.use {
+                    val sql = """
+                        INSERT OR IGNORE INTO transactions (operated_at, description, value, balance)
+                        VALUES (?, ?, ?, ?)
+                    """.trimIndent()
+                    
+                    executeInsert(it, sql, transaction).bind()
+                }
+            }
+        }
+
+    override suspend fun saveAll(transactions: List<Transaction>): Either<TransactionRepositoryError, TransactionRepository.SaveResult> = 
+        withContext(ioDispatcher) {
+            if (transactions.isEmpty()) {
+                return@withContext TransactionRepository.SaveResult(0, 0).right()
+            }
             
+            either {
+                val conn = connection().bind()
+                
+                conn.use {
+                    executeBatchInsert(it, transactions).bind()
+                }
+            }
+        }
+
+    override suspend fun count(): Either<TransactionRepositoryError, Long> = 
+        withContext(ioDispatcher) {
+            either {
+                val conn = connection().bind()
+                
+                conn.use { executeCount(it).bind() }
+            }
+        }
+
+    override suspend fun findAll(): Either<TransactionRepositoryError, List<Transaction>> = 
+        withContext(ioDispatcher) {
+            either {
+                val conn = connection().bind()
+                
+                conn.use { executeFindAll(it).bind() }
+            }
+        }
+    
+    // --- Helper functions using runCatching + fold ---
+    
+    private fun executeInsert(
+        conn: Connection,
+        sql: String,
+        transaction: Transaction
+    ): Either<TransactionRepositoryError.InsertError, Boolean> = 
+        runCatching {
             conn.prepareStatement(sql).use { stmt ->
                 stmt.setString(1, transaction.operatedAt.toString())
                 stmt.setString(2, transaction.description)
@@ -35,72 +99,97 @@ class SQLiteTransactionRepository(
                 
                 stmt.executeUpdate() > 0
             }
-        }
-    }
-
-    override suspend fun saveAll(transactions: List<Transaction>): Int = withContext(ioDispatcher) {
-        if (transactions.isEmpty()) return@withContext 0
-        
-        connection().use { conn ->
+        }.fold(
+            onSuccess = { it.right() },
+            onFailure = { e ->
+                TransactionRepositoryError.InsertError(
+                    message = "Failed to insert transaction: ${e.message}",
+                    cause = e
+                ).left()
+            }
+        )
+    
+    private fun executeBatchInsert(
+        conn: Connection,
+        transactions: List<Transaction>
+    ): Either<TransactionRepositoryError.InsertError, TransactionRepository.SaveResult> = 
+        runCatching {
             conn.autoCommit = false
             
-            try {
-                val sql = """
-                    INSERT OR IGNORE INTO transactions (operated_at, description, value, balance)
-                    VALUES (?, ?, ?, ?)
-                """.trimIndent()
-                
-                var insertedCount = 0
-                
-                conn.prepareStatement(sql).use { stmt ->
-                    for (transaction in transactions) {
-                        stmt.setString(1, transaction.operatedAt.toString())
-                        stmt.setString(2, transaction.description)
-                        stmt.setBigDecimal(3, transaction.value)
-                        stmt.setBigDecimal(4, transaction.balance)
-                        insertedCount += stmt.executeUpdate()
-                    }
+            val sql = """
+                INSERT OR IGNORE INTO transactions (operated_at, description, value, balance)
+                VALUES (?, ?, ?, ?)
+            """.trimIndent()
+            
+            val insertedCount = conn.prepareStatement(sql).use { stmt ->
+                transactions.sumOf { transaction ->
+                    stmt.setString(1, transaction.operatedAt.toString())
+                    stmt.setString(2, transaction.description)
+                    stmt.setBigDecimal(3, transaction.value)
+                    stmt.setBigDecimal(4, transaction.balance)
+                    stmt.executeUpdate()
                 }
-                
-                conn.commit()
-                insertedCount
-            } catch (e: Exception) {
-                conn.rollback()
-                throw e
             }
-        }
-    }
-
-    override suspend fun count(): Long = withContext(ioDispatcher) {
-        connection().use { conn ->
+            
+            conn.commit()
+            TransactionRepository.SaveResult(
+                inserted = insertedCount,
+                duplicates = transactions.size - insertedCount
+            )
+        }.fold(
+            onSuccess = { it.right() },
+            onFailure = { e ->
+                runCatching { conn.rollback() }
+                TransactionRepositoryError.InsertError(
+                    message = "Failed to batch insert transactions: ${e.message}",
+                    cause = e
+                ).left()
+            }
+        )
+    
+    private fun executeCount(conn: Connection): Either<TransactionRepositoryError.QueryError, Long> = 
+        runCatching {
             conn.prepareStatement("SELECT COUNT(*) FROM transactions").use { stmt ->
                 stmt.executeQuery().use { rs ->
                     if (rs.next()) rs.getLong(1) else 0L
                 }
             }
-        }
-    }
-
-    override suspend fun findAll(): List<Transaction> = withContext(ioDispatcher) {
-        connection().use { conn ->
+        }.fold(
+            onSuccess = { it.right() },
+            onFailure = { e ->
+                TransactionRepositoryError.QueryError(
+                    message = "Failed to count transactions: ${e.message}",
+                    cause = e
+                ).left()
+            }
+        )
+    
+    private fun executeFindAll(conn: Connection): Either<TransactionRepositoryError.QueryError, List<Transaction>> = 
+        runCatching {
             conn.prepareStatement(
                 "SELECT operated_at, description, value, balance FROM transactions ORDER BY operated_at DESC"
             ).use { stmt ->
                 stmt.executeQuery().use { rs ->
-                    val transactions = mutableListOf<Transaction>()
-                    while (rs.next()) {
-                        transactions.add(
+                    // Use generateSequence to lazily iterate over ResultSet
+                    generateSequence { if (rs.next()) rs else null }
+                        .map { resultSet ->
                             Transaction(
-                                operatedAt = java.time.LocalDate.parse(rs.getString("operated_at")),
-                                description = rs.getString("description"),
-                                value = rs.getBigDecimal("value"),
-                                balance = rs.getBigDecimal("balance")
+                                operatedAt = java.time.LocalDate.parse(resultSet.getString("operated_at")),
+                                description = resultSet.getString("description"),
+                                value = resultSet.getBigDecimal("value"),
+                                balance = resultSet.getBigDecimal("balance")
                             )
-                        )
-                    }
-                    transactions
+                        }
+                        .toList()
                 }
             }
-        }
-    }
+        }.fold(
+            onSuccess = { it.right() },
+            onFailure = { e ->
+                TransactionRepositoryError.QueryError(
+                    message = "Failed to query transactions: ${e.message}",
+                    cause = e
+                ).left()
+            }
+        )
 }

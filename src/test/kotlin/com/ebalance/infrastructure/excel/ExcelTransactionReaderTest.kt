@@ -1,11 +1,14 @@
 package com.ebalance.infrastructure.excel
 
-import com.ebalance.application.port.TransactionReadException
-import io.kotest.assertions.throwables.shouldThrow
+import arrow.core.fold
+import arrow.core.left
+import arrow.core.right
+import com.ebalance.domain.error.TransactionReadError
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -14,7 +17,6 @@ import kotlinx.coroutines.test.setMain
 import org.apache.poi.hssf.usermodel.HSSFWorkbook
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.math.BigDecimal
 import java.time.LocalDate
 
 class ExcelTransactionReaderTest : DescribeSpec({
@@ -94,30 +96,38 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     )
                     
                     val inputStream = createXlsStream(data)
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 3
-                    
-                    transactions[0].operatedAt shouldBe LocalDate.of(2026, 2, 23)
-                    transactions[0].description shouldBe "Repsol E0394"
-                    transactions[0].value.toDouble() shouldBe -75.01
-                    transactions[0].balance.toDouble() shouldBe 578.96
-                    
-                    transactions[1].operatedAt shouldBe LocalDate.of(2026, 2, 23)
-                    transactions[1].description shouldBe "Farmacia Dias"
-                    
-                    transactions[2].operatedAt shouldBe LocalDate.of(2026, 2, 19)
-                    transactions[2].description shouldBe "Transferência de Softdraft"
-                    transactions[2].value.toDouble() shouldBe 700.0
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions ->
+                            transactions shouldHaveSize 3
+                            
+                            transactions[0].operatedAt shouldBe LocalDate.of(2026, 2, 23)
+                            transactions[0].description shouldBe "Repsol E0394"
+                            transactions[0].value.toDouble() shouldBe -75.01
+                            transactions[0].balance.toDouble() shouldBe 578.96
+                            
+                            transactions[1].operatedAt shouldBe LocalDate.of(2026, 2, 23)
+                            transactions[1].description shouldBe "Farmacia Dias"
+                            
+                            transactions[2].operatedAt shouldBe LocalDate.of(2026, 2, 19)
+                            transactions[2].description shouldBe "Transferência de Softdraft"
+                            transactions[2].value.toDouble() shouldBe 700.0
+                        }
+                    )
                 }
             }
             
             it("should handle empty data rows") {
                 runTest {
                     val inputStream = createXlsStream(emptyList())
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 0
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions -> transactions shouldHaveSize 0 }
+                    )
                 }
             }
             
@@ -129,10 +139,15 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     )
                     
                     val inputStream = createXlsStream(data)
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 1
-                    transactions[0].description shouldBe "Valid Transaction"
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions ->
+                            transactions shouldHaveSize 1
+                            transactions[0].description shouldBe "Valid Transaction"
+                        }
+                    )
                 }
             }
             
@@ -144,9 +159,12 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     )
                     
                     val inputStream = createXlsStream(data)
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 1
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions -> transactions shouldHaveSize 1 }
+                    )
                 }
             }
             
@@ -158,9 +176,12 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     )
                     
                     val inputStream = createXlsStream(data)
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 1
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions -> transactions shouldHaveSize 1 }
+                    )
                 }
             }
             
@@ -172,32 +193,44 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     )
                     
                     val inputStream = createXlsStream(data)
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 2
-                    transactions[0].value.toDouble() shouldBe -100.50
-                    transactions[1].value.toDouble() shouldBe 500.0
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions ->
+                            transactions shouldHaveSize 2
+                            transactions[0].value.toDouble() shouldBe -100.50
+                            transactions[1].value.toDouble() shouldBe 500.0
+                        }
+                    )
                 }
             }
             
-            it("should throw TransactionReadException for invalid Excel file") {
+            it("should return InvalidFormat error for invalid Excel file") {
                 runTest {
                     val invalidStream = ByteArrayInputStream("not an excel file".toByteArray())
                     
-                    val exception = shouldThrow<TransactionReadException> {
-                        reader.read(invalidStream)
-                    }
+                    val result = reader.read(invalidStream)
                     
-                    exception.message shouldContain "Failed to read Excel file"
+                    result.fold(
+                        ifLeft = { error ->
+                            error.shouldBeInstanceOf<TransactionReadError.InvalidFormat>()
+                            error.message shouldContain "Failed to read Excel file"
+                        },
+                        ifRight = { throw AssertionError("Expected Left but got Right: $it") }
+                    )
                 }
             }
             
             it("should handle Excel file with only metadata rows") {
                 runTest {
                     val inputStream = createXlsStream(emptyList(), includeHeader = true)
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 0
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions -> transactions shouldHaveSize 0 }
+                    )
                 }
             }
             
@@ -215,9 +248,12 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     }
                     
                     val inputStream = createXlsStream(data)
-                    val transactions = reader.read(inputStream)
+                    val result = reader.read(inputStream)
                     
-                    transactions shouldHaveSize 100
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions -> transactions shouldHaveSize 100 }
+                    )
                 }
             }
         }
