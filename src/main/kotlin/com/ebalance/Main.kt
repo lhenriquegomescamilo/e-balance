@@ -1,8 +1,8 @@
 package com.ebalance
 
-import com.ebalance.cli.ReadTransactions
+import com.ebalance.cli.InitCommand
 import com.github.ajalt.clikt.core.main
 
 fun main(args: Array<String> = emptyArray()) {
-    ReadTransactions().main(args)
+    InitCommand().main(args)
 }

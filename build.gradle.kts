@@ -31,6 +31,8 @@ dependencies {
     // optional support for rendering markdown in help messages
     implementation("com.github.ajalt.clikt:clikt-markdown:5.0.1")
 
+    implementation("org.apache.poi:poi:5.5.1")
+
     testImplementation(kotlin("test"))
     testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("io.kotest:kotest-assertions-core:6.1.3")
