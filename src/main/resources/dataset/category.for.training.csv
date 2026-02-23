@@ -17,8 +17,20 @@ DELIVERY;Glovo
 DELIVERY;Just Eat
 DELIVERY;Sushiloko
 DELIVERY;Rest Sushi Rao
+RESTAURANTE;Autogrill 7130
+RESTAURANTE;Ristorante Replay
+RESTAURANTE;Ristorante
+RESTAURANTE;Autogrill
+RESTAURANTE;Tabaccheria Rossini
+RESTAURANTE;Tabaccheria
+RESTAURANTE;Osteria Marconi
 RESTAURANTE;Mcdonalds
+RESTAURANTE;Mc Donald's
 RESTAURANTE;Starbucks
+RESTAURANTE;Quinta Do Tedo
+RESTAURANTE;Taco Bell Vila Conde
+RESTAURANTE;Taco Bell
+RESTAURANTE;Taco
 RESTAURANTE;Choco Val
 RESTAURANTE;Espetinhojapao
 RESTAURANTE;Sr Frango Guia
@@ -32,6 +44,8 @@ RESTAURANTE;Churrasqueira
 RESTAURANTE;Restaurante
 RESTAURANTE;Café
 RESTAURANTE;Pizza
+RESTAURANTE;Cantinho Porto
+RESTAURANTE;1st Cafe
 BISCOITOS;Biscoitaria
 BISCOITOS;Bolachas
 SUPERMERCADO;Pingo Doce
@@ -45,6 +59,7 @@ ASSINATURAS;Disney+
 ASSINATURAS;HBO Max
 ASSINATURAS;Amazon Prime
 ASSINATURAS;Apple.com/bill
+ASSINATURAS;Apple
 ASSINATURAS;Google Youtubepremium
 ASSINATURAS;Jetbrains Americas Inc
 ASSINATURAS;Crunchyroll
@@ -66,6 +81,7 @@ ARRENDAMENTO;Aluguer
 ARRENDAMENTO;Renda Casa
 ENERGIA;Edp Comercial
 ENERGIA;Eletricidade
+ENERGIA;Gold Energy
 AGUA;Serviços de Água
 AGUA;EPAL
 VIA_VERDE;Via Verde
@@ -88,6 +104,7 @@ SEGURO;Seguro Saude
 IMPOSTO;Imposto do Selo
 IMPOSTO;Trf. Cobr DUC
 IMPOSTO;Finanças
+IMPOSTO;Estado
 IMPOSTO;Pagamento ao Estado
 IRS;IRS
 IRS;Imposto sobre o Rendimento
@@ -100,6 +117,7 @@ TRANSFERENCIAS_BRASIL;Remessa
 TRANSFERENCIAS_BRASIL;Transferência Brasil
 TRANSFERENCIAS;Transferência
 TRANSFERENCIAS;Trf. MB WAY
+TRANSFERENCIAS;Trf.Imed.   de
 LEVANTAMENTO;Levantamento
 LEVANTAMENTO;Multibanco
 LEVANTAMENTO;Caixa
