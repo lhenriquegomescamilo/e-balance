@@ -2,6 +2,7 @@ package com.ebalance.infrastructure.classification
 
 import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.classification.CategoryClassifier
+import java.util.function.Function.identity
 import org.slf4j.LoggerFactory
 
 /**
@@ -31,23 +32,22 @@ class CategoryClassifierAdapter(
     override fun classify(description: String): CategoryClassifierPort.ClassificationResult {
         log.debug("Adapter classifying: '$description'")
         val result = classifier.classify(description)
-        return if (result.isRight()) {
-            result.getOrNull()!!.let {
-                val classificationResult = CategoryClassifierPort.ClassificationResult(
+        return result
+            .map {
+                CategoryClassifierPort.ClassificationResult(
                     categoryId = it.categoryId,
                     confidence = it.confidence
                 )
-                log.debug("Adapter classification result: {}", classificationResult)
-                classificationResult
             }
-        } else {
-            log.error("Classification failed for '$description': ${result.leftOrNull()}")
-            // Return default unknown category on error
-            CategoryClassifierPort.ClassificationResult(
-                categoryId = 0L,
-                confidence = 0.0
-            )
-        }
+            .mapLeft {
+                CategoryClassifierPort.ClassificationResult(
+                    categoryId = 0L,
+                    confidence = 0.0
+                )
+            }
+            .onLeft { log.error("Classification failed for '$description': ${result.leftOrNull()}") }
+            .onRight { log.debug("Adapter classification result: {}", it) }
+            .fold({ it }, { it })
     }
 
     override fun classifyAll(descriptions: List<String>): List<CategoryClassifierPort.ClassificationResult> {

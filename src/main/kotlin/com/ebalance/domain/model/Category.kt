@@ -51,11 +51,24 @@ enum class Category(val id: Long, val displayName: String) {
     EDUCACAO(41, "Educação"),
     SEGURO(42, "Seguro"),
     TRANSFERENCIAS_BRASIL(43, "Transferências Brasil"),
-    GINASIO(44, "Ginásio");
+    GINASIO(44, "Ginásio"),
+    MATERNIDADE(45, "Maternidade"),
+    TRANSFERENCIAS(46, "Transferências"),
+    ESTACIONAMENTO(47, "Estacionamento")
+
+    ;
 
     companion object {
 
+        private val fixedExpense = setOf(
+            MORADIA, ESCOLA_DOS_FILHOS, CONTABILISTA, ARRENDAMENTO,
+            TELEFONIA, ENERGIA, AGUA, PERSONAL_TRAINER, VIA_VERDE,
+            SEGURO_DE_CARRO, ASSINATURAS, TAXA_BANCARIA, SEGURO,
+            SEGURANCA_SOCIAL, IRS, SALARIO, GINASIO, CARTAO
+        )
+
         private val log = LoggerFactory.getLogger(Category::class.java)
+
         /**
          * Returns the category by its ID.
          */
@@ -79,14 +92,7 @@ enum class Category(val id: Long, val displayName: String) {
         /**
          * Returns true if this category is a fixed expense.
          */
-        fun isFixedExpense(category: Category): Boolean = when (category) {
-            MORADIA, ESCOLA_DOS_FILHOS, CONTABILISTA, ARRENDAMENTO,
-            TELEFONIA, ENERGIA, AGUA, PERSONAL_TRAINER, VIA_VERDE,
-            SEGURO_DE_CARRO, ASSINATURAS, TAXA_BANCARIA, SEGURO,
-            SEGURANCA_SOCIAL, IRS, SALARIO, GINASIO, CARTAO -> true
-
-            else -> false
-        }
+        fun isFixedExpense(category: Category): Boolean = category in fixedExpense
     }
 }
 /**

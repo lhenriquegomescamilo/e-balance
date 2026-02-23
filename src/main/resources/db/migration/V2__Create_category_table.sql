@@ -52,7 +52,10 @@ INSERT INTO category (id, name, enum_name) VALUES
        (41, 'Educação', 'EDUCACAO'),
        (42, 'Seguro', 'SEGURO'),
        (43, 'Transferências Brasil', 'TRANSFERENCIAS_BRASIL'),
-       (44, 'Ginásio', 'GINASIO');
+       (44, 'Ginásio', 'GINASIO'),
+       (45, 'Maternidade', 'MATERNIDADE'),
+       (46, 'Transferências', 'TRANSFERENCIAS'),
+       (47, 'Estacionamento', 'ESTACIONAMENTO');
 
 -- Add category_id column to transactions
 ALTER TABLE transactions ADD COLUMN category_id INTEGER DEFAULT 0;

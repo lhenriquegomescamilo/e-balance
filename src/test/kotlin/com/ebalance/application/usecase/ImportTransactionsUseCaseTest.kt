@@ -4,11 +4,13 @@ import arrow.core.fold
 import arrow.core.left
 import arrow.core.right
 import com.ebalance.TestFixtures
+import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.domain.error.ImportError
 import com.ebalance.domain.error.TransactionReadError
 import com.ebalance.domain.error.TransactionRepositoryError
 import com.ebalance.application.port.TransactionReader
 import com.ebalance.application.port.TransactionRepository
+import com.ebalance.classification.TextClassifier
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -41,11 +43,13 @@ class ImportTransactionsUseCaseTest : DescribeSpec({
         lateinit var repository: TransactionRepository
         lateinit var useCase: ImportTransactionsUseCase
         lateinit var inputStream: InputStream
-        
+        lateinit var  classififer: CategoryClassifierPort
+
         beforeEach {
             reader = mockk()
             repository = mockk()
-            useCase = ImportTransactionsUseCase(reader, repository, null, testDispatcher)
+            classififer = mockk()
+            useCase = ImportTransactionsUseCase(reader, repository, classififer, testDispatcher)
             inputStream = ByteArrayInputStream("test data".toByteArray())
         }
         

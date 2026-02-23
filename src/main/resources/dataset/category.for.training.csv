@@ -14,7 +14,7 @@ TRANSPORTE;Uber
 TRANSPORTE;Uber Eats
 TRANSPORTE;Bolt
 TRANSPORTE;Taxi
-SEGURANCA_SOCIAL;Aegon Santander Portugal Nao Vida
+SEGURO;Aegon Santander Portugal Nao Vida
 SEGURANCA_SOCIAL;Segurança Social
 RESTAURANTE;Mcdonalds
 RESTAURANTE;Choco Val
@@ -23,6 +23,7 @@ RESTAURANTE;Espetinhojapao
 RESTAURANTE;R F H Paraiso Doces
 RESTAURANTE;Fausto E Manoel
 RESTAURANTE;Macdonalds Aeropuerto
+RESTAURANTE;Mcdonalds
 RESTAURANTE;Sr Frango Guia
 RESTAURANTE;Nei E Joice Rest
 RESTAURANTE;Brisa Areas Servico
@@ -38,6 +39,12 @@ RESTAURANTE;Restaurante
 RESTAURANTE;Café
 RESTAURANTE;Pizza
 RESTAURANTE;Sabores De Viana
+RESTAURANTE;Panda Wok
+RESTAURANTE;Churrasqueira
+RESTAURANTE;Bruna Prometti Lopes
+RESTAURANTE;Starbucks
+RESTAURANTE;Italian Republic Mat
+RESTAURANTE;Italian Republic
 ASSINATURAS;Netflix
 ASSINATURAS;Spotify
 ASSINATURAS;Google Youtube Member
@@ -50,6 +57,11 @@ ASSINATURAS;Amazon Prime
 ASSINATURAS;Disney+
 ASSINATURAS;HBO Max
 ASSINATURAS;Microsoft 365
+ASSINATURAS;Apple.com/bill
+ASSINATURAS;Apple.com
+ASSINATURAS;Dnh*godaddy#
+ASSINATURAS;godaddy
+ASSINATURAS;Crunchyroll
 FARMACIA;Atacadao Drogacenter
 FARMACIA;Farmacia
 FARMACIA;Farmácia
@@ -60,6 +72,10 @@ TRANSFERENCIAS_BRASIL;Wise
 TRANSFERENCIAS_BRASIL;Transferência para Jose Carlos Nogueira Lima
 TRANSFERENCIAS_BRASIL;Remessa
 TRANSFERENCIAS_BRASIL;Transferência Brasil
+TRANSFERENCIAS;Transferência de Softdraft - Unipessoal Lda
+TRANSFERENCIAS;Transferência
+TRANSFERENCIAS;Trf. MB WAY
+TRANSFERENCIAS;Trf. MB WAY para
 TELEFONIA;Nos Comunicacoes
 TELEFONIA;Airalo
 TELEFONIA;Vodafone
@@ -81,10 +97,13 @@ INVESTIMENTO;Coinbase Ireland Limited
 INVESTIMENTO;Trade Republic
 INVESTIMENTO;Investing
 INVESTIMENTO;Bolsa
-INVESTIMENTO;Transferência para Jose Carlos Nogueira Lima
 IMPOSTO;Trf. Cobr DUC
 IMPOSTO;Imposto
 IMPOSTO;Finanças
+IMPOSTO;Comissao
+IMPOSTO;978-Imp.Cpr. Estr
+IMPOSTO;978-Imp.Cpr
+IMPOSTO;978-Imp
 LEVANTAMENTO;Transferência para Nr
 LEVANTAMENTO;Levantamento
 LEVANTAMENTO;Multibanco
@@ -190,3 +209,10 @@ SALARIO;Salário
 SALARIO;ordenado
 SALARIO;Vencimento
 SEGURANCA_SOCIAL;Segurança Social
+SUPERMERCADO;Pingo Doce Braga
+SUPERMERCADO;Pingo Doce
+SUPERMERCADO;Auchan Guimaraes
+SUPERMERCADO;Auchan
+SUPERMERCADO;Lidl Agradece
+SUPERMERCADO;Lidl
+MATERNIDADE;Bebe Confort Outlet
