@@ -2,7 +2,6 @@ package com.ebalance.application.usecase
 
 import arrow.core.Either
 import arrow.core.raise.either
-import arrow.core.raise.ensure
 import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.application.port.TransactionReader
 import com.ebalance.application.port.TransactionRepository
@@ -49,9 +48,14 @@ class ImportTransactionsUseCase(
                 .mapLeft { ImportError.ReadError(it) }
                 .bind()
 
-            // Validate that we have transactions to import (allow empty to pass through)
-            ensure(transactions.isNotEmpty()) {
-                ImportError.EmptyInput("No transactions found in input")
+            // Empty transaction list is valid - return zero counts
+            if (transactions.isEmpty()) {
+                return@either Result(
+                    totalRead = 0,
+                    totalInserted = 0,
+                    duplicatesSkipped = 0,
+                    classifiedCount = 0
+                )
             }
 
             // Classify transactions if classifier is available

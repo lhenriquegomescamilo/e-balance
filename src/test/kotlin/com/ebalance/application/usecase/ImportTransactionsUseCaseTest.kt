@@ -48,7 +48,7 @@ class ImportTransactionsUseCaseTest : DescribeSpec({
         beforeEach {
             reader = mockk()
             repository = mockk()
-            classififer = mockk()
+            classififer = mockk(relaxed = true)  // Relaxed mock to return default values
             useCase = ImportTransactionsUseCase(reader, repository, classififer, testDispatcher)
             inputStream = ByteArrayInputStream("test data".toByteArray())
         }
