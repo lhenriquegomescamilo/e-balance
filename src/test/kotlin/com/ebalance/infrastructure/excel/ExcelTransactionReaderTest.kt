@@ -92,7 +92,7 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     val data = listOf(
                         listOf("23-02-2026", "23-02-2026", "Repsol E0394", -75.01, 578.96),
                         listOf("23-02-2026", "23-02-2026", "Farmacia Dias", -39.09, 653.97),
-                        listOf("19-02-2026", "19-02-2026", "Transferência de Softdraft", 700.0, 703.86)
+                        listOf("19-02-2026", "19-02-2026", "Other Transfer", 700.0, 703.86)
                     )
                     
                     val inputStream = createXlsStream(data)
@@ -112,7 +112,7 @@ class ExcelTransactionReaderTest : DescribeSpec({
                             transactions[1].description shouldBe "Farmacia Dias"
                             
                             transactions[2].operatedAt shouldBe LocalDate.of(2026, 2, 19)
-                            transactions[2].description shouldBe "Transferência de Softdraft"
+                            transactions[2].description shouldBe "Other Transfer"
                             transactions[2].value.toDouble() shouldBe 700.0
                         }
                     )
@@ -253,6 +253,31 @@ class ExcelTransactionReaderTest : DescribeSpec({
                     result.fold(
                         ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
                         ifRight = { transactions -> transactions shouldHaveSize 100 }
+                    )
+                }
+            }
+            
+            it("should filter out any Softdraft-related transactions") {
+                runTest {
+                    val data = listOf(
+                        listOf("23-02-2026", "23-02-2026", "Repsol E0394", -75.01, 578.96),
+                        listOf("22-02-2026", "22-02-2026", "Transferência de Softdraft - Unipessoal Lda", 700.0, 653.97),
+                        listOf("21-02-2026", "21-02-2026", "Farmacia Dias", -39.09, 1353.97),
+                        listOf("20-02-2026", "20-02-2026", "TRANSFERÊNCIA DE SOFTDRAFT - UNIPESSOAL LDA", 800.0, 1393.06),
+                        listOf("19-02-2026", "19-02-2026", "Pagamento Softdraft", 500.0, 1893.06),
+                        listOf("18-02-2026", "18-02-2026", "softdraft payment", 200.0, 2093.06)
+                    )
+                    
+                    val inputStream = createXlsStream(data)
+                    val result = reader.read(inputStream)
+                    
+                    result.fold(
+                        ifLeft = { throw AssertionError("Expected Right but got Left: $it") },
+                        ifRight = { transactions ->
+                            transactions shouldHaveSize 2
+                            transactions[0].description shouldBe "Repsol E0394"
+                            transactions[1].description shouldBe "Farmacia Dias"
+                        }
                     )
                 }
             }

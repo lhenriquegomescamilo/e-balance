@@ -93,6 +93,9 @@ class ExcelTransactionReader(
         val description = row.getCell(2)?.stringCellValue?.trim() ?: return null
         if (description.isBlank()) return null
         
+        // Filter out any Softdraft-related transactions
+        if (description.contains("Softdraft", ignoreCase = true)) return null
+        
         // Get value (amount)
         val value = row.getCell(3)?.numericCellValue?.let { BigDecimal.valueOf(it) }
             ?: return null

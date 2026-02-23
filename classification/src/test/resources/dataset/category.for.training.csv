@@ -1,12 +1,25 @@
 HOSPITAL;Hospital Da Luz Sa
+HOSPITAL;Hosp Luz Guimaraes
+HOSPITAL;Clinica Cp Premium
 COMBUSTIVEL;Posto Garzzo
 COMBUSTIVEL;Alfabrent
 COMBUSTIVEL;Bp Prior Velho
+COMBUSTIVEL;Autogrill 7130
+COMBUSTIVEL;Autogrill Cote Franc
 TRANSPORTE;Uber Trip
 TRANSPORTE;Uber* Trip
 TRANSPORTE;Uber
+TRANSPORTE;Ryanair
+TRANSPORTE;Transavia France
+TRANSPORTE;Transavia Inflight Sho
+TRANSPORTE;Ratp
+TRANSPORTE;Distribusion Aerobus P
+TRANSPORTE;Autostradale
 SEGURANCA_SOCIAL;Aegon Santander Portugal Nao Vida
+SEGURANCA_SOCIAL;Segurança Social
 RESTAURANTE;Mcdonalds
+RESTAURANTE;Mc Donald's
+RESTAURANTE;Macdonalds Aeroporto
 RESTAURANTE;Choco Val
 RESTAURANTE;Fabrisa Mariano Ribei
 RESTAURANTE;Espetinhojapao
@@ -23,6 +36,47 @@ RESTAURANTE;Sabores D Maria
 RESTAURANTE;Rosa Da Cunha Castro
 RESTAURANTE;Ret El Caminito
 RESTAURANTE;Cbbhp-hotels-in-port
+RESTAURANTE;Starbucks 56413 Cc Mar
+RESTAURANTE;Starbucks
+RESTAURANTE;Origens E Destinos
+RESTAURANTE;Braza - Espaco G
+RESTAURANTE;Rest D Jose
+RESTAURANTE;Restaurante Dan Jose
+RESTAURANTE;Camada Francesinhas
+RESTAURANTE;Subway Vila Do Conde
+RESTAURANTE;Conf Bom Jesus Monte
+RESTAURANTE;Taco Bell Vila Conde
+RESTAURANTE;Bricioleaeroporto Ori
+RESTAURANTE;1st Cafe
+RESTAURANTE;Liston 12 - Orchidea S
+RESTAURANTE;Osteria Marconi
+RESTAURANTE;Naviglio 48
+RESTAURANTE;Mitsui Sas Di Zhou Wei
+RESTAURANTE;Ristorante Replay
+RESTAURANTE;Milano Farinella
+RESTAURANTE;Calavera Milano City L
+RESTAURANTE;Nota-mi
+RESTAURANTE;Chez Francis
+RESTAURANTE;Le Chalet Savoyard
+RESTAURANTE;Sp Cedric-grolet-choco
+RESTAURANTE;Maison Belkheir
+RESTAURANTE;Delices District
+RESTAURANTE;Le Cristal
+RESTAURANTE;Angelina Alma
+RESTAURANTE;San Jovany
+RESTAURANTE;Hms Host International
+RESTAURANTE;Fabel Friet Runstraat
+RESTAURANTE;Restaurant Smelt
+RESTAURANTE;Lunch Cafe Dialoog
+RESTAURANTE;Zettle_*san Thomas Res
+RESTAURANTE;Ccv*crepes And Waffles
+RESTAURANTE;Opo Caffriccio
+RESTAURANTE;Cantinho Porto
+RESTAURANTE;Varanda Da Estrela
+RESTAURANTE;Resves Restaurante
+RESTAURANTE;Koppu Izakaya Chiado
+RESTAURANTE;Beyondlounge
+RESTAURANTE;Brasao Foz
 ASSINATURAS;Netflix
 ASSINATURAS;Spotify
 ASSINATURAS;Google Youtube Member
@@ -31,9 +85,13 @@ ASSINATURAS;Google Youtubepremium
 ASSINATURAS;Pilgrim App
 ASSINATURAS;Apple
 FARMACIA;Atacadao Drogacenter
+FARMACIA;Pharmacie Des Pe
 TRANSFERENCIAS_BRASIL;Transferwise
 TRANSFERENCIAS_BRASIL;Wise
 TRANSFERENCIAS_BRASIL;Transferência para Jose Carlos Nogueira Lima
+TRANSFERENCIAS;Transferência de Mirna Alencar Salheb
+TRANSFERENCIAS;Trf.Imed.   de Luis Henrique Gomes Camilo-R1884884
+TRANSFERENCIAS;Transferência recebida
 TELEFONIA;Nos Comunicacoes
 TELEFONIA;Airalo
 MORADIA;Amazon Br
@@ -42,20 +100,32 @@ MORADIA;Hiper Casa
 DELIVERY;Sushiloko
 DELIVERY;Bolt
 DELIVERY;Rest Sushi Rao
+DELIVERY;Shein
 INVESTIMENTO;Coinbase Ireland Limited
-INVESTIMENTO;Transferência para Jose Carlos Nogueira Lima
+INVESTIMENTO;Coinbase
+INVESTIMENTO;Trf.Imed.   P/ Coinbase-E0274393
+INVESTIMENTO;Trf.Imed.   P/ Coinbase-E0263061
 IMPOSTO;Trf. Cobr DUC
+IMPOSTO;Pagamento ao Estado
 LEVANTAMENTO;Transferência para Nr
 CARRO;321 Credito
 CARRO;Carpneu
+CARRO;Creixoauto
+CARRO;Adm Drive
 TAXA_BANCARIA;Imposto do Selo
 TAXA_BANCARIA;Comissão de manutenção de conta pacote
 TAXA_BANCARIA;Comissão Trf Cred Sepa
+TAXA_BANCARIA;Anulacao Comiss. Cambio
 TURISMO;Cars On Booking
 TURISMO;Hotel At Booking
 TURISMO;Aero Sleep Campinas
 TURISMO;Flysafeb
 TURISMO;Ale-hop Aeropuerto T1
+TURISMO;Getyourguide Tickets
+TURISMO;Tours&tickets
+TURISMO;Holiday Inn Express -
+TURISMO;Quinta Do Tedo
+TURISMO;Forte De Sao Miguel
 VIA_VERDE;Via Verde
 ELETRONICOS;Fnac Aeropuerto
 ELETRONICOS;Fnac Vasco Da Gama
@@ -63,10 +133,17 @@ PRESENTE;Ba5-aerop Lisboa T1
 CABELO;The Barber Company
 ARRENDAMENTO;Arrendamento
 ENERGIA;Edp Comercial Comercializacao De Energia S.a
+ENERGIA;Gold Energy
 ESTETICA;Transferência para Nr
 ROUPA;Springfield Guimarae
+ROUPA;Lefties
+ROUPA;Underblue Promo Stor
+ROUPA;Gutteridge G026
 LAZER;Cinema NOS
 LAZER;Teatro
+LAZER;Captain Candy
+LAZER;Musiam16240paul4
+LAZER;Ivs France
 DOACOES;Cruz Vermelha
 DOACOES;UNICEF
 GINASIO;Gymnasio
@@ -74,6 +151,7 @@ GINASIO;Fitness Hut
 EDUCACAO;Escola dos filhos
 PERSONAL_TRAINER;Personal Trainer
 PORTAGEM;Portagem
+PORTAGEM;Parque Ribeira
 LAVANDERIA;Lavanderia
 LAVA_RAPIDO;Lava Rápido
 BARBEIRO;Barbeiro
@@ -81,4 +159,21 @@ CARTAO;Cartão
 CONTABILISTA;Contabilista
 IRS;IRS
 SALARIO;Salário
-SEGURANCA_SOCIAL;Segurança Social
+SUPERMERCADO;A Super 2000
+SUPERMERCADO;Moom Minimercado
+SUPERMERCADO;Albert Heijn
+SUPERMERCADO;Jumbo Foodmarkt Adam
+SUPERMERCADO;Wundermart B.v.
+SUPERMERCADO;Bck*ghm Bb B.v.
+SUPERMERCADO;Shopping Sul
+SUPERMERCADO;Freeport Basilico
+SUPERMERCADO;Garraf Grande Escolha
+SUPERMERCADO;Joao Maximino
+BISCOITOS;Tabaccheria Rossini
+BISCOITOS;Edicola Di Huang Zhife
+BISCOITOS;Da Toilettes
+BISCOITOS;Sq Arabica France
+BISCOITOS;Mle Bornais Dominique
+AGUA;Água
+ESTACIONAMENTO;Pad Port Expo Nor
+ESTACIONAMENTO;Estacionamento
