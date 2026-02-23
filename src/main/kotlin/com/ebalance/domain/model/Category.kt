@@ -67,13 +67,12 @@ enum class Category(val id: Long, val displayName: String) {
             SEGURANCA_SOCIAL, IRS, SALARIO, GINASIO, CARTAO
         )
 
-        private val log = LoggerFactory.getLogger(Category::class.java)
+        private val ids = entries.associateBy { it.id }
 
         /**
          * Returns the category by its ID.
          */
-        fun fromId(id: Long): Category =
-            entries.find { it.id == id } ?: DESCONHECIDA
+        fun fromId(id: Long): Category = ids[id] ?: DESCONHECIDA
 
         /**
          * Returns the category by its display name.
@@ -85,7 +84,6 @@ enum class Category(val id: Long, val displayName: String) {
          * Returns the category by its enum name.
          */
         fun fromEnumName(name: String): Category {
-            log.info("Looking up category by enum name: $name")
             return entries.find { it.name.equals(name, ignoreCase = true) } ?: DESCONHECIDA
         }
 

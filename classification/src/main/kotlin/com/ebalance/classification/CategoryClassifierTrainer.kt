@@ -11,7 +11,8 @@ import java.io.InputStream
  */
 class CategoryClassifierTrainer(
     private val modelPath: String = "model.zip",
-    private val datasetPath: String = "dataset/category.for.training.csv"
+    private val datasetPath: String = "dataset/category.for.training.csv",
+    private val epochs: Int = 500
 ) {
     private val log = LoggerFactory.getLogger(CategoryClassifierTrainer::class.java)
     
@@ -61,12 +62,12 @@ class CategoryClassifierTrainer(
             log.debug("Category distribution: {}", categoryDistribution)
             
             val dataset = maps.toList()
-            val textClassifier = TextClassifier(modelPath = modelPath)
+            val textClassifier = TextClassifier(modelPath = modelPath, epochs = epochs)
             textClassifier.train(dataset)
             
-            log.info("Classifier trained successfully with ${maps.size} entries")
+            log.info("Classifier trained successfully with ${maps.size} entries ($epochs epochs)")
             
-            TrainingResult(entries = maps.size).right()
+            TrainingResult(entries = maps.size, epochs = epochs).right()
         } catch (e: Exception) {
             log.error("Training failed: ${e.message}", e)
             TrainingError.TrainProcessErr(e.message ?: "Unknown training error").left()
@@ -81,7 +82,7 @@ class CategoryClassifierTrainer(
             .joinToString(" ")
     }
 
-    data class TrainingResult(val entries: Int)
+    data class TrainingResult(val entries: Int, val epochs: Int)
 
     sealed class TrainingError {
         data class DatasetNotFoundErr(val msg: String) : TrainingError()

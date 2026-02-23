@@ -26,7 +26,8 @@ class TextClassifier(
     private val businessStopWords = setOf(
         "lda", "l d a", "Lda", "Unipessoal", "unipessoal", "sa", "s.a.", "s a", "limitada", "sociedade",
         "portugal", "portuguesa", "e", "de", "da", "do", "das", "dos", "com",
-        "comunicacoes", "actividades", "gestao", "administracao", "servicos"
+        "comunicacoes", "actividades", "gestao", "administracao", "servicos",
+        "56413 Cc Mar"
     )
 
     private lateinit var paragraphVectors: ParagraphVectors
@@ -163,9 +164,9 @@ class TextClassifier(
 
         // 1. Check if model knows the words
         val tokens = tokenizerFactory.create(cleanedInput).tokens
-        log.debug("Tokenized: $tokens")
+        log.debug("Tokenized: {}", tokens)
         val knownWords = tokens.filter { paragraphVectors.vocab().containsWord(it) }
-        log.debug("Known words: $knownWords")
+        log.debug("Known words: {}", knownWords)
 
         var aiLabel = "0"
         var aiScore = 0.0

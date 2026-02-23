@@ -6,9 +6,12 @@ import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.application.port.TransactionReader
 import com.ebalance.application.port.TransactionRepository
 import com.ebalance.domain.error.ImportError
+import com.ebalance.domain.model.Category
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.InputStream
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import org.slf4j.LoggerFactory
 
 /**
@@ -58,34 +61,41 @@ class ImportTransactionsUseCase(
                 )
             }
 
-            // Classify transactions if classifier is available
-            val classifiedTransactions = takeIf { classifier.isModelLoaded() }
-                ?.let {
-                    buildList {
-                        for (transaction in transactions) {
+            // Process transactions in chunks: classify (if available) then save
+            val chunkSize = 500
+            var totalInserted = 0
+            var totalDuplicates = 0
+            var classifiedCount = 0
+
+            transactions.chunked(chunkSize).forEach { chunk ->
+                val processedChunk = if (classifier.isModelLoaded()) {
+                    classifiedCount += chunk.size
+                    chunk.map { transaction ->
+                        async(Dispatchers.IO) {
                             val classificationResult = classifier.classify(transaction.description)
-                            log.info("Classified transaction: ${transaction.description} -> $classificationResult")
-                            // Update transaction with classified category
-                            add(transaction.copy(categoryId = classificationResult.categoryId))
+                            val fromId = Category.fromId(classificationResult.categoryId)
+                            log.info("Classified transaction: $fromId -> \tConfidence ${classificationResult.confidence} -> \t${transaction.description}")
+                            transaction.copy(categoryId = classificationResult.categoryId)
                         }
-                    }
-                }
-                ?: run {
+                    }.awaitAll()
+                } else {
                     log.warn("Classification model not loaded, skipping classification")
-                    transactions
+                    chunk
                 }
 
+                val saveResult = transactionRepository.saveAll(processedChunk)
+                    .mapLeft { ImportError.PersistenceError(it) }
+                    .bind()
 
-            // Save transactions to the repository
-            val saveResult = transactionRepository.saveAll(classifiedTransactions)
-                .mapLeft { ImportError.PersistenceError(it) }
-                .bind()
+                totalInserted += saveResult.inserted
+                totalDuplicates += saveResult.duplicates
+            }
 
             Result(
                 totalRead = transactions.size,
-                totalInserted = saveResult.inserted,
-                duplicatesSkipped = saveResult.duplicates,
-                classifiedCount = takeIf { classifier.isModelLoaded() }?.let { transactions.size } ?: 0
+                totalInserted = totalInserted,
+                duplicatesSkipped = totalDuplicates,
+                classifiedCount = classifiedCount
             )
         }
     }

@@ -8,7 +8,7 @@
 
     <!-- Classification logger - default INFO, can be set to DEBUG -->
     <logger name="com.ebalance" level="INFO" />
-    <logger name="com.ebalance.infrastructure" level="DEBUG" />
+    <logger name="com.ebalance.infrastructure" level="INFO" />
 
     <!-- Root logger -->
     <root level="INFO">

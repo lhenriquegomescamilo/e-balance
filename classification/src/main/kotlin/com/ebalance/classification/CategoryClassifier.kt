@@ -7,6 +7,11 @@ import arrow.core.raise.ensure
 import arrow.core.right
 import org.slf4j.LoggerFactory
 import java.io.InputStream
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 
 /**
  * Service for classifying transactions into categories.
@@ -91,12 +96,21 @@ class CategoryClassifier(
      * @param descriptions The transaction descriptions to classify
      * @return Either<ClassificationError, List<ClassificationResult>>
      */
-    fun classifyAll(descriptions: List<String>): Either<ClassificationError, List<ClassificationResult>> {
+    fun classifyAll(input: List<String>): Either<ClassificationError, List<ClassificationResult>> {
         return try {
-            val results = descriptions.mapNotNull { desc ->
-                classify(desc).getOrNull()
+            val output = ArrayList<ClassificationResult>(input.size)
+            val chuncked = input.chunked(100)
+            runBlocking(Dispatchers.IO) {
+                val results = ArrayList<Deferred<List<ClassificationResult>>>(chuncked.size)
+                for (descriptions in chuncked) {
+                    val deferred =
+                        async(Dispatchers.IO) { descriptions.mapNotNull { desc -> classify(desc).getOrNull() } }
+                    results.add(deferred)
+                }
+                results.awaitAll().flatten().forEach { output.add(it) }
+
             }
-            results.right()
+            output.right()
         } catch (e: Exception) {
             ClassificationError.ClassificationErr(e.message ?: "Unknown error").left()
         }
