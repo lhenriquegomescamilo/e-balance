@@ -1,6 +1,12 @@
 [versions]
 kotlinxImmutable = "0.4.0"
+kotest = "6.1.3"
 
 [libraries]
 commonText = { module = "org.apache.commons:commons-text", version = "1.10.0" }
 kotlinxCollectionImmutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxImmutable" }
+kotestAssertionsCore = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotestProperty = { module = "io.kotest:kotest-property", version.ref = "kotest" }
+kotestRunnerJunit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
+kotestAssertionsArrow = { module = "io.kotest.extensions:kotest-assertions-arrow", version = "2.0.0" }
+mockk = { module = "io.mockk:mockk", version = "1.14.9" }

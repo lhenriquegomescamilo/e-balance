@@ -36,6 +36,11 @@ dependencies {
 
     testImplementation(kotlin("test"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotestAssertionsCore)
+    testImplementation(libs.kotestProperty)
+    testImplementation(libs.kotestRunnerJunit5)
+    testImplementation(libs.kotestAssertionsArrow)
 }
 
 kotlin {
