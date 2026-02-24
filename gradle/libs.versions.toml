@@ -1,3 +1,6 @@
+[versions]
+kotlinxImmutable = "0.4.0"
 
 [libraries]
 commonText = { module = "org.apache.commons:commons-text", version = "1.10.0" }
+kotlinxCollectionImmutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxImmutable" }

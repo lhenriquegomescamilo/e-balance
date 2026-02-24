@@ -18,6 +18,7 @@ dependencies {
     val dl4jVersion = "1.0.0-M2.1"
 
     implementation(libs.commonText)
+    implementation(libs.kotlinxCollectionImmutable)
 
     // Core NLP and DL4J
     implementation("org.deeplearning4j:deeplearning4j-nlp:$dl4jVersion")
