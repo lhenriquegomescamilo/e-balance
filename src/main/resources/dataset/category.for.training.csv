@@ -19,6 +19,9 @@ DELIVERY;Sushiloko
 DELIVERY;Rest Sushi Rao
 RESTAURANTE;Autogrill 7130
 RESTAURANTE;Sabores De Viana
+RESTAURANTE;Sabores De
+RESTAURANTE;Sabores
+RESTAURANTE;Sabor
 RESTAURANTE;A Super 2000
 RESTAURANTE;Ristorante Replay
 RESTAURANTE;Ristorante
@@ -27,6 +30,7 @@ RESTAURANTE;Tabaccheria Rossini
 RESTAURANTE;Tabaccheria
 RESTAURANTE;Osteria Marconi
 RESTAURANTE;Mcdonalds
+RESTAURANTE;Mcdonalds 43
 RESTAURANTE;Mc Donald's
 RESTAURANTE;Starbucks
 RESTAURANTE;Quinta Do Tedo
@@ -111,6 +115,8 @@ IMPOSTO;Trf. Cobr DUC
 IMPOSTO;Finanças
 IMPOSTO;Estado
 IMPOSTO;Pagamento ao Estado
+IMPOSTO;Imposto do Selo sobre comissão
+IMPOSTO;Imposto do Selo sobre comissão
 IRS;IRS
 IRS;Imposto sobre o Rendimento
 TAXA_BANCARIA;Taxa Bancária
@@ -123,6 +129,7 @@ TRANSFERENCIAS_BRASIL;Transferência Brasil
 TRANSFERENCIAS;Transferência
 TRANSFERENCIAS;Trf. MB WAY
 TRANSFERENCIAS;Trf.Imed.   de
+TRANSFERENCIAS;Pagamento Ifthenpay
 LEVANTAMENTO;Levantamento
 LEVANTAMENTO;Multibanco
 LEVANTAMENTO;Caixa
