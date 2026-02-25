@@ -1,5 +1,11 @@
 package com.ebalance.classification
 
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.util.Random
 import kotlin.math.exp
 import kotlin.math.pow
@@ -106,6 +112,41 @@ class TextClassifierNeuralNetwork(
         }
     }
 
+    /**
+     * Computes the R² score using raw string data instead of pre-encoded vectors.
+     *
+     * @param trainData Multi-line string in "LABEL;Description" format, used to derive
+     *                  the vocabulary and label index. Must match the data used to
+     *                  initialize the network's [inputSize] and [outputSize].
+     * @param testData  Multi-line string in "LABEL;Description" format to evaluate.
+     * @return R² score in (-∞, 1.0], where 1.0 is a perfect fit.
+     */
+    fun score(trainData: String, testData: String): Double {
+        val trainLines = trainData.lines().filter { it.isNotBlank() }
+        val testLines = testData.lines().filter { it.isNotBlank() }
+
+        val labels = trainLines.map { it.split(";")[0].trim() }.distinct()
+        val words = trainLines.flatMap { it.split(";")[1].trim().lowercase().split(" ") }.distinct()
+
+        val actuals = mutableListOf<DoubleArray>()
+        val predicteds = mutableListOf<DoubleArray>()
+
+        for (line in testLines) {
+            val parts = line.split(";", limit = 2)
+            if (parts.size < 2) continue
+            val label = parts[0].trim()
+            val description = parts[1].trim()
+
+            val inputVec = DoubleArray(words.size) { i -> if (description.lowercase().contains(words[i])) 1.0 else 0.0 }
+            val targetVec = DoubleArray(labels.size) { i -> if (labels[i] == label) 1.0 else 0.0 }
+
+            actuals.add(targetVec)
+            predicteds.add(predict(inputVec))
+        }
+
+        return calculateR2(actuals, predicteds)
+    }
+
     fun calculateR2(actuals: List<DoubleArray>, predicteds: List<DoubleArray>): Double {
         val numSamples = actuals.size
         val numOutputs = actuals[0].size
@@ -132,6 +173,54 @@ class TextClassifierNeuralNetwork(
 
         // 3. Final calculation
         return if (ssTot == 0.0) 0.0 else 1.0 - (ssRes / ssTot)
+    }
+
+    /**
+     * Serializes the network weights and biases to [out].
+     * Intended for embedding inside a larger model file (e.g. [NeuralNetworkClassifier]).
+     */
+    fun save(out: DataOutputStream) {
+        out.writeInt(inputSize)
+        out.writeInt(hiddenSize)
+        out.writeInt(outputSize)
+        out.writeDouble(lambda)
+        for (i in 0 until inputSize) for (j in 0 until hiddenSize) out.writeDouble(weightsIH[i][j])
+        for (i in 0 until hiddenSize) for (j in 0 until outputSize) out.writeDouble(weightsHO[i][j])
+        for (j in 0 until hiddenSize) out.writeDouble(biasH[j])
+        for (j in 0 until outputSize) out.writeDouble(biasO[j])
+    }
+
+    /**
+     * Saves the network to a standalone binary file at [path].
+     */
+    fun save(path: String) {
+        DataOutputStream(BufferedOutputStream(FileOutputStream(path))).use { save(it) }
+    }
+
+    companion object {
+        /**
+         * Restores a [TextClassifierNeuralNetwork] from a [DataInputStream].
+         * The stream must be positioned at the start of data written by [save].
+         */
+        fun load(input: DataInputStream): TextClassifierNeuralNetwork {
+            val inputSize = input.readInt()
+            val hiddenSize = input.readInt()
+            val outputSize = input.readInt()
+            val lambda = input.readDouble()
+            val nn = TextClassifierNeuralNetwork(inputSize, hiddenSize, outputSize, lambda)
+            for (i in 0 until inputSize) for (j in 0 until hiddenSize) nn.weightsIH[i][j] = input.readDouble()
+            for (i in 0 until hiddenSize) for (j in 0 until outputSize) nn.weightsHO[i][j] = input.readDouble()
+            for (j in 0 until hiddenSize) nn.biasH[j] = input.readDouble()
+            for (j in 0 until outputSize) nn.biasO[j] = input.readDouble()
+            return nn
+        }
+
+        /**
+         * Loads a [TextClassifierNeuralNetwork] from a standalone binary file at [path].
+         */
+        fun load(path: String): TextClassifierNeuralNetwork {
+            return DataInputStream(BufferedInputStream(FileInputStream(path))).use { load(it) }
+        }
     }
 }
 
@@ -160,7 +249,6 @@ fun main() {
                 nn.train(inputVec, targetVec, 0.1)
             }
         }
-
     }
 
     // Test prediction
@@ -168,8 +256,6 @@ fun main() {
     val testVec = DoubleArray(words.size) { i -> if (test.lowercase().contains(words[i])) 1.0 else 0.0 }
     val result = measureTimedValue { nn.predict(testVec) }
 
-//    val score = nn.calculateR2()
-
     val bestMatchIndex = result.value.indices.maxByOrNull { result.value[it] } ?: 0
-    println("Training time: $timeForTraining, time for preditc: ${result.duration} Input: $test -> Predicted: ${labels[bestMatchIndex]}")
+    println("Training time: $timeForTraining, time for predict: ${result.duration} Input: $test -> Predicted: ${labels[bestMatchIndex]}")
 }
