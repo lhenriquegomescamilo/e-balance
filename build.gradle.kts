@@ -60,13 +60,15 @@ dependencies {
     // Arrow for functional error handling
     implementation("io.arrow-kt:arrow-core:2.0.1")
 
+    implementation(libs.kotlinxCollectionImmutable)
+
     testImplementation(kotlin("test"))
-    testImplementation("io.mockk:mockk:1.14.9")
-    testImplementation("io.kotest:kotest-assertions-core:6.1.3")
-    testImplementation("io.kotest:kotest-property:6.1.3")
-    testImplementation("io.kotest:kotest-runner-junit5:6.1.3")
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotestAssertionsCore)
+    testImplementation(libs.kotestProperty)
+    testImplementation(libs.kotestRunnerJunit5)
+    testImplementation(libs.kotestAssertionsArrow)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
-    testImplementation("io.kotest.extensions:kotest-assertions-arrow:2.0.0")
 
 }
 

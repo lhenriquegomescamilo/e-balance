@@ -6,7 +6,9 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 
 - Import transactions from Excel `.xls` files
 - Automatic duplicate detection (skips already imported transactions)
-- Automatic transaction categorization using ML classifier (DL4j ParagraphVectors)
+- Automatic transaction categorization with two interchangeable classifier engines:
+  - **ParagraphVectors** — DL4J neural word embeddings (default)
+  - **Neural Network** — built-in bag-of-words feedforward network (no external ML dependency)
 - SQLite database with Flyway migrations
 - Database initialized automatically on first run
 
@@ -57,28 +59,72 @@ chmod +x ebalance.sh
     --responsible "Maria"
 ```
 
+## Classifier Engines
+
+Both the `train` and `import` commands accept an `--engine` flag that selects which classifier backend to use.
+
+| `--engine` value | Backend | Model file | Notes |
+|---|---|---|---|
+| `paragraph-vectors` | DL4J ParagraphVectors | `*.zip` | Default. Best for large, varied datasets. |
+| `neural-network` | Built-in feedforward NN | `*.bin` | No DL4J runtime needed at inference time. |
+
+> The `--model` flag (set on the root command) tells every subcommand where to find or save the model file.
+> Use a **different path** for each engine so their files don't overwrite each other.
+
+### paragraph-vectors workflow (default)
+
+```bash
+# 1. Train
+./gradlew run --args="train"
+# or with custom paths
+./gradlew run --args="--model model.zip train --engine paragraph-vectors --dataset /path/to/dataset.csv --epoch 500"
+
+# 2. Import
+./gradlew run --args="import /path/to/transactions.xls"
+# or with explicit engine
+./gradlew run --args="--model model.zip import /path/to/transactions.xls --engine paragraph-vectors"
+```
+
+### neural-network workflow
+
+```bash
+# 1. Train — saves a .bin file instead of .zip
+./gradlew run --args="--model nn-model.bin train --engine neural-network"
+
+# Custom dataset or epoch count
+./gradlew run --args="--model nn-model.bin train --engine neural-network --dataset /path/to/dataset.csv --epoch 1000"
+
+# 2. Import using the neural-network model
+./gradlew run --args="--model nn-model.bin import /path/to/transactions.xls --engine neural-network"
+```
+
+Both engines read the same dataset CSV (`CATEGORY_ID;BusinessName` format). The neural-network trainer converts the numeric IDs to category enum names automatically.
+
+---
+
 ## Usage
 
 ### Using Gradle
 
 ```bash
-# Basic import (creates e-balance.db in current directory)
+# Basic import — paragraph-vectors engine (default)
 ./gradlew run --args="import /path/to/transactions.xls"
+
+# Import with neural-network engine
+./gradlew run --args="--model nn-model.bin import /path/to/transactions.xls --engine neural-network"
 
 # With custom database location
 ./gradlew run --args="--db /custom/path/mydb.db import /path/to/transactions.xls"
 
-# With custom model path (for classification)
-./gradlew run --args="--model /custom/path/model.zip import /path/to/transactions.xls"
-
-# Train the classifier (requires dataset at classpath:dataset/category.for.training.csv)
+# Train with default engine (paragraph-vectors)
 ./gradlew run --args="train"
+
+# Train with neural-network engine
+./gradlew run --args="--model nn-model.bin train --engine neural-network"
 
 # Train with custom dataset
 ./gradlew run --args="train --dataset /path/to/dataset.csv"
-
-# Train with custom model path (overrides default model.zip)
-./gradlew run --args="train --model /custom/path/model.zip"
+./gradlew run --args="--model nn-model.bin train --engine neural-network --dataset /path/to/dataset.csv"
 
 # Export transactions to Google Sheets
 ./gradlew run --args="export <SPREADSHEET_ID>"
@@ -90,54 +136,99 @@ chmod +x ebalance.sh
 # Build and install the distribution
 ./gradlew clean installDist
 
-# Run the application
-./build/install/e-balance/bin/e-balance import /path/to/transactions.xls
+# Alias for brevity (optional)
+alias ebalance="./build/install/e-balance/bin/e-balance"
+
+# Import — default engine (paragraph-vectors)
+ebalance import /path/to/transactions.xls
+
+# Import — neural-network engine
+ebalance --model nn-model.bin import /path/to/transactions.xls --engine neural-network
 
 # With custom database
-./build/install/e-balance/bin/e-balance --db /custom/path.db import /path/to/transactions.xls
+ebalance --db /custom/path.db import /path/to/transactions.xls
 
-# With custom model path (for classification)
-./build/install/e-balance/bin/e-balance --model /custom/path/model.zip import /path/to/transactions.xls
+# Train — default engine (paragraph-vectors)
+ebalance train
 
-# Train the classifier (requires dataset at classpath:dataset/category.for.training.csv)
-./build/install/e-balance/bin/e-balance train
+# Train — neural-network engine
+ebalance --model nn-model.bin train --engine neural-network
 
 # Train with custom dataset
-./build/install/e-balance/bin/e-balance train --dataset /path/to/dataset.csv
-
-# Train with custom model path (overrides default model.zip)
-./build/install/e-balance/bin/e-balance train --model /custom/path/model.zip
+ebalance train --dataset /path/to/dataset.csv
+ebalance --model nn-model.bin train --engine neural-network --dataset /path/to/dataset.csv
 
 # Export transactions to Google Sheets
-./build/install/e-balance/bin/e-balance export <SPREADSHEET_ID>
+ebalance export <SPREADSHEET_ID>
 
 # Export with custom bank account and responsible
-./build/install/e-balance/bin/e-balance export <SPREADSHEET_ID> --bank-account "Novo Banco" --responsible "Maria"
+ebalance export <SPREADSHEET_ID> --bank-account "Novo Banco" --responsible "Maria"
 
 # Show help
-./build/install/e-balance/bin/e-balance --help
+ebalance --help
+ebalance train --help
+ebalance import --help
 ```
 
 ### Example
 
-```bash
-# First, train the classifier with custom model path (optional but recommended for categorization)
-./build/install/e-balance/bin/e-balance train --model /custom/path/model.zip
+#### With paragraph-vectors (default)
 
-# Then import transactions using the custom model
-./build/install/e-balance/bin/e-balance --model /custom/path/model.zip import src/main/resources/.tmp/transactions/descarga.xls
+```bash
+# Train
+./build/install/e-balance/bin/e-balance train
+
+# Import
+./build/install/e-balance/bin/e-balance import /path/to/transactions.xls
 ```
 
 Output:
 ```
 Initializing database: e-balance.db
 Training category classifier...
-Using default dataset from classpath
+Engine:  paragraph-vectors
+...
 Training completed successfully!
   Dataset entries: 123
+  Epochs:          500
   Model saved to:  model.zip
 
-Importing transactions from: src/main/resources/.tmp/transactions/descarga.xls
+Importing transactions from: /path/to/transactions.xls
+Classifier engine:           paragraph-vectors
+Classifier model loaded:     model.zip
+Import completed:
+  Total read:      329
+  Inserted:        318
+  Duplicates:      11
+  Classified:      318
+```
+
+#### With neural-network
+
+```bash
+# Train (saves nn-model.bin instead of model.zip)
+./build/install/e-balance/bin/e-balance --model nn-model.bin train --engine neural-network
+
+# Import using the neural-network model
+./build/install/e-balance/bin/e-balance --model nn-model.bin import /path/to/transactions.xls --engine neural-network
+```
+
+Output:
+```
+Initializing database: e-balance.db
+Training category classifier...
+Engine:  neural-network
+Model:   nn-model.bin
+Epochs:  500
+...
+Training completed successfully!
+  Dataset entries: 123
+  Epochs:          500
+  Model saved to:  nn-model.bin
+
+Importing transactions from: /path/to/transactions.xls
+Classifier engine:           neural-network
+Classifier model loaded:     nn-model.bin
 Import completed:
   Total read:      329
   Inserted:        318
@@ -265,19 +356,25 @@ Balance is not part of the unique constraint.
 src/main/kotlin/com/ebalance/
 ├── Main.kt                           # Entry point
 ├── cli/
-│   ├── InitCommand.kt               # Root command + dependency injection
-│   ├── ImportCommand.kt             # Import subcommand
-│   └── TrainCommand.kt               # Train classifier subcommand
+│   ├── InitCommand.kt               # Root command — DB init + shared deps
+│   ├── ClassifierEngine.kt          # Enum for --engine option values
+│   ├── ImportCommand.kt             # Import subcommand (owns classifier wiring)
+│   ├── TrainCommand.kt              # Train classifier subcommand
+│   └── ExportCommand.kt             # Google Sheets export subcommand
 ├── domain/
 │   └── model/
 │       └── Transaction.kt           # Domain entity
 ├── application/
 │   ├── port/
+│   │   ├── CategoryClassifierPort.kt # Classifier abstraction
 │   │   ├── TransactionReader.kt     # Port interface
 │   │   └── TransactionRepository.kt # Port interface
 │   └── usecase/
 │       └── ImportTransactionsUseCase.kt
 └── infrastructure/
+    ├── classification/
+    │   ├── CategoryClassifierAdapter.kt        # paragraph-vectors engine adapter
+    │   └── NeuralNetworkClassifierAdapter.kt   # neural-network engine adapter
     ├── persistence/
     │   ├── DatabaseFactory.kt       # SQLite + Flyway setup
     │   └── SQLiteTransactionRepository.kt
@@ -285,9 +382,11 @@ src/main/kotlin/com/ebalance/
         └── ExcelTransactionReader.kt
 
 classification/src/main/kotlin/com/ebalance/classification/
-├── TextClassifier.kt                 # DL4j ParagraphVectors classifier
-├── CategoryClassifier.kt            # Wrapper with Either error handling
-└── CategoryClassifierTrainer.kt     # Training service
+├── TextClassifier.kt                 # DL4J ParagraphVectors classifier
+├── CategoryClassifier.kt            # Either-based wrapper for TextClassifier
+├── CategoryClassifierTrainer.kt     # Training service for paragraph-vectors
+├── TextClassifierNeuralNetwork.kt   # Bag-of-words feedforward neural network
+└── NeuralNetworkClassifier.kt       # Adapter: train/save/load/predict (text-level)
 
 src/main/resources/
 └── db/migration/
@@ -368,7 +467,7 @@ result.fold(
 | Flyway | 10.10.0 | Database migrations |
 | Kotlinx Coroutines | 1.8.0 | Async operations |
 | Arrow Core | 2.0.1 | Functional error handling |
-| DL4j | 1.0.0-M2.1 | ML classifier (ParagraphVectors) |
+| DL4j | 1.0.0-M2.1 | ML classifier (ParagraphVectors engine) |
 | Google API Client | 2.0.0 | Google APIs client |
 | Google Sheets API | v4-rev612-1.25.0 | Google Sheets integration |
 | Google Auth Library | 1.16.0 | OAuth2 authentication |
