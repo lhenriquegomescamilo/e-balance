@@ -150,7 +150,7 @@ The **confidence** of the prediction is the winning probability itself: $\hat{y}
 
 **Example** — for $K = 4$ classes after encoding `"Via Verde"`:
 
-$$\hat{\mathbf{y}} = [0.01,\; \mathbf{0.91},\; 0.05,\; 0.03] \implies \hat{c} = C[1] = \text{VIA\_VERDE}$$
+$$\hat{\mathbf{y}} = [0.01,\; \mathbf{0.91},\; 0.05,\; 0.03] \implies \hat{c} = C[1] = \texttt{VIA\_VERDE}$$
 
 with confidence $0.91$.
 
