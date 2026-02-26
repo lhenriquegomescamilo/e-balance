@@ -9,14 +9,17 @@ COMBUSTIVEL;Repsol
 COMBUSTIVEL;Galp
 COMBUSTIVEL;Cepsa
 TRANSPORTE;Uber Trip
-TRANSPORTE;Uber
+TRANSPORTE;Ubr .uber
 TRANSPORTE;Bolt
 TRANSPORTE;Taxi
+TRANSPORTE;Autostradale
+TRANSPORTE;Distribusion Aerobus P
 DELIVERY;Uber Eats
 DELIVERY;Glovo
 DELIVERY;Just Eat
 DELIVERY;Sushiloko
 DELIVERY;Rest Sushi Rao
+DELIVERY;Bolt
 RESTAURANTE;Autogrill 7130
 RESTAURANTE;Sabores De Viana
 RESTAURANTE;Sabores De
@@ -66,6 +69,7 @@ SUPERMERCADO;Minimercado
 SUPERMERCADO;Moom Minimercado
 ASSINATURAS;Netflix
 ASSINATURAS;Spotify
+ASSINATURAS;Spotify P327dd8e02
 ASSINATURAS;Disney+
 ASSINATURAS;HBO Max
 ASSINATURAS;Amazon Prime
@@ -75,11 +79,14 @@ ASSINATURAS;Google Youtubepremium
 ASSINATURAS;Jetbrains Americas Inc
 ASSINATURAS;Crunchyroll
 ASSINATURAS;Dnh*godaddy#
+ASSINATURAS;Nos Comunicacoes
+ASSINATURAS;Pilgrim App
 FARMACIA;Farmacia
 FARMACIA;Farmácia
 FARMACIA;Drogaria
 FARMACIA;Atacadao Drogacenter
 FARMACIA;Farm Dias Machado
+FARMACIA;Pharmacie
 TELEFONIA;Nos Comunicacoes
 TELEFONIA;Vodafone
 TELEFONIA;MEO
@@ -94,6 +101,7 @@ ARRENDAMENTO;Renda Casa
 ENERGIA;Edp Comercial
 ENERGIA;Eletricidade
 ENERGIA;Gold Energy
+ENERGIA;GOLDENERGY
 AGUA;Serviços de Água
 AGUA;EPAL
 VIA_VERDE;Via Verde
@@ -104,6 +112,8 @@ PORTAGEM;Scut
 ESTACIONAMENTO;Estacionamento
 ESTACIONAMENTO;Emel
 ESTACIONAMENTO;Parque Estacionamento
+ESTACIONAMENTO;Parque Ribeira
+ESTACIONAMENTO;Parque
 CARRO;Norauto
 CARRO;Creixoauto
 CARRO;Origens E Destinos
@@ -115,6 +125,7 @@ SEGURO_DE_CARRO;Seguro Automovel
 SEGURO_DE_CARRO;Seguro Carro
 SEGURO;Aegon Santander Portugal
 SEGURO;Seguro Saude
+SEGURO;Mapfre Asistenci
 IMPOSTO;Imposto do Selo
 IMPOSTO;Trf. Cobr DUC
 IMPOSTO;Finanças
@@ -127,6 +138,9 @@ IRS;Imposto sobre o Rendimento
 TAXA_BANCARIA;Taxa Bancária
 TAXA_BANCARIA;Comissão de manutenção
 TAXA_BANCARIA;Comissao
+TAXA_BANCARIA;Anulacao Comiss. Cambio
+TAXA_BANCARIA;Comiss
+TAXA_BANCARIA;Cambio
 TRANSFERENCIAS_BRASIL;Transferwise
 TRANSFERENCIAS_BRASIL;Wise
 TRANSFERENCIAS_BRASIL;Remessa
@@ -139,6 +153,7 @@ LEVANTAMENTO;Levantamento
 LEVANTAMENTO;Multibanco
 LEVANTAMENTO;Caixa
 INVESTIMENTO;Coinbase Ireland Limited
+INVESTIMENTO;Trf.Imed. P/ Coinbase Ireland Limited-E0272574
 INVESTIMENTO;Trade Republic
 INVESTIMENTO;Bolsa
 TURISMO;Booking
@@ -146,7 +161,14 @@ TURISMO;Conf Bom Jesus Monte
 TURISMO;Airbnb
 TURISMO;Hotel
 TURISMO;Viagem
+TURISMO;Musiam16240paul4
+TURISMO;Getyourguide Tickets
+TURISMO;Getyourguide
+TURISMO;Tours&tickets
+TURISMO;Tours
 ELETRONICOS;Fnac
+ELETRONICOS;Fnac Aeroporto
+ELETRONICOS;Fnac Vasco Da Gama
 ELETRONICOS;Media Markt
 ELETRONICOS;Worten
 ROUPA;Zara
@@ -154,6 +176,10 @@ ROUPA;H&M
 ROUPA;Pull&Bear
 ROUPA;Stradivarius
 ROUPA;Springfield
+ROUPA;Shein
+ROUPA;El Corte Ingles S. A
+ROUPA;El Corte Ingles
+ROUPA;Lefties
 CABELO;The Barber Company
 CABELO;Cabeleireiro
 CABELO;Corte de Cabelo
