@@ -1,11 +1,6 @@
 package com.ebalance.cli
 
-import com.ebalance.application.port.CategoryClassifierPort
 import com.ebalance.application.port.TransactionRepository
-import com.ebalance.application.usecase.ImportTransactionsUseCase
-import com.ebalance.domain.model.Category
-import com.ebalance.infrastructure.classification.CategoryClassifierAdapter
-import com.ebalance.infrastructure.excel.ExcelTransactionReader
 import com.ebalance.infrastructure.persistence.DatabaseFactory
 import com.ebalance.infrastructure.persistence.SQLiteTransactionRepository
 import com.github.ajalt.clikt.core.CliktCommand
@@ -22,57 +17,34 @@ class InitCommand : CliktCommand() {
         .default("e-balance.db")
         .help("Path to SQLite database file")
 
-    private val modelPath: String by option("--model", "-m")
+    val modelPath: String by option("--model", "-m")
         .default("model.zip")
-        .help("Path to the trained classifier model")
+        .help("Path to the trained classifier model file")
 
     override fun help(context: Context): String = "E-Balance: Personal finance transaction manager"
 
     override fun run() {
-        // Initialize database (create file + run migrations)
         echo("Initializing database: $dbPath")
         DatabaseFactory.initialize(dbPath)
-        
-        // Label to ID converter function
-        val labelToId: (String) -> Long = { label ->
-            Category.fromEnumName(label).id
-        }
-        
-        // Initialize classifier adapter (port implementation)
-        val classifier: CategoryClassifierPort = CategoryClassifierAdapter(
-            modelPath = modelPath,
-            labelToId = labelToId
-        )
-        
-        // Try to load the model
-        val modelLoaded = classifier.loadModel()
-        
-        if (modelLoaded) {
-            echo("Classifier model loaded: $modelPath")
-        } else {
-            echo("Note: No classifier model found at $modelPath")
-            echo("      Run 'ebalance train' to train the classifier first")
-        }
-        
-        // Wire up dependencies
-        val transactionReader = ExcelTransactionReader(Dispatchers.IO)
+
         val transactionRepository: TransactionRepository = SQLiteTransactionRepository(dbPath, Dispatchers.IO)
-        val importUseCase = ImportTransactionsUseCase(
-            transactionReader, 
-            transactionRepository, 
-            classifier,
-            Dispatchers.IO
+
+        // Classifier and use-case creation is left to each subcommand so they can
+        // independently choose their --engine.
+        currentContext.obj = Dependencies(
+            transactionRepository = transactionRepository,
+            modelPath = modelPath
         )
-        
-        // Make dependencies available to subcommands via context
-        currentContext.obj = Dependencies(importUseCase, transactionRepository)
     }
-    
+
     /**
-     * Container for shared dependencies passed to subcommands.
+     * Shared infrastructure made available to all subcommands via the Clikt context object.
+     *
+     * Classifier selection is intentionally deferred to each subcommand (see [ImportCommand],
+     * [TrainCommand]) so that `--engine` can be a per-subcommand option.
      */
     data class Dependencies(
-        val importTransactionsUseCase: ImportTransactionsUseCase,
-        val transactionRepository: TransactionRepository
+        val transactionRepository: TransactionRepository,
+        val modelPath: String
     )
 }

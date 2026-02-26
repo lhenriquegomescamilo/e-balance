@@ -17,7 +17,9 @@ class TextClassifierNeuralNetwork(
     val inputSize: Int,
     val hiddenSize: Int,
     val outputSize: Int,
-    val lambda: Double = 0.001
+    val lambda: Double = 0.001,
+    val labels: List<String> = emptyList(),
+    val words: List<String> = emptyList()
 ) {
     // Weights and Biases
     private var weightsIH = Array(inputSize) { DoubleArray(hiddenSize) { Random().nextGaussian() * 0.1 } }
@@ -29,13 +31,22 @@ class TextClassifierNeuralNetwork(
     private fun sigmoid(x: Double) = 1.0 / (1.0 + exp(-x))
     private fun sigmoidDeriv(x: Double) = x * (1.0 - x)
 
+    // Softmax for multi-class output (numerically stable)
+    private fun softmax(logits: DoubleArray): DoubleArray {
+        val max = logits.max()
+        val exps = DoubleArray(logits.size) { exp(logits[it] - max) }
+        val sum = exps.sum()
+        return DoubleArray(exps.size) { exps[it] / sum }
+    }
+
     /**
      * The Full Train Function
      * @param input: The "Bag of Words" vector (0s and 1s)
      * @param target: The "One-Hot" label vector (e.g., [1, 0, 0] for HOSPITAL)
      * @param learningRate: How fast the network learns (e.g., 0.1)
+     * @param weight: Per-sample importance weight, used for class balancing (default 1.0)
      */
-    fun train(input: DoubleArray, target: DoubleArray, learningRate: Double) {
+    fun train(input: DoubleArray, target: DoubleArray, learningRate: Double, weight: Double = 1.0) {
 
         // --- 1. FORWARD PASS ---
         // Calculate Hidden Layer
@@ -48,22 +59,23 @@ class TextClassifierNeuralNetwork(
             hidden[j] = sigmoid(sum)
         }
 
-        // Calculate Output Layer
-        val output = DoubleArray(outputSize)
+        // Calculate Output Layer (raw logits → softmax probabilities)
+        val rawOutput = DoubleArray(outputSize)
         for (j in 0 until outputSize) {
             var sum = biasO[j]
             for (i in 0 until hiddenSize) {
                 sum += hidden[i] * weightsHO[i][j]
             }
-            output[j] = sigmoid(sum)
+            rawOutput[j] = sum
         }
+        val output = softmax(rawOutput)
 
         // --- 2. BACKPROPAGATION (Error Calculation) ---
 
-        // Output Layer Errors & Gradients
-        // Error = (Desired - Actual)
+        // Output Layer Gradients: cross-entropy + softmax simplifies to (target - output)
+        // Scaled by per-sample weight for class balancing
         val outputGradients = DoubleArray(outputSize) { j ->
-            (target[j] - output[j]) * sigmoidDeriv(output[j])
+            (target[j] - output[j]) * weight
         }
 
         // Hidden Layer Errors & Gradients
@@ -107,9 +119,10 @@ class TextClassifierNeuralNetwork(
         val hidden = DoubleArray(hiddenSize) { j ->
             sigmoid(biasH[j] + input.indices.sumOf { i -> input[i] * weightsIH[i][j] })
         }
-        return DoubleArray(outputSize) { j ->
-            sigmoid(biasO[j] + hidden.indices.sumOf { i -> hidden[i] * weightsHO[i][j] })
+        val logits = DoubleArray(outputSize) { j ->
+            biasO[j] + hidden.indices.sumOf { i -> hidden[i] * weightsHO[i][j] }
         }
+        return softmax(logits)
     }
 
     /**
@@ -125,8 +138,12 @@ class TextClassifierNeuralNetwork(
         val trainLines = trainData.lines().filter { it.isNotBlank() }
         val testLines = testData.lines().filter { it.isNotBlank() }
 
-        val labels = trainLines.map { it.split(";")[0].trim() }.distinct()
-        val words = trainLines.flatMap { it.split(";")[1].trim().lowercase().split(" ") }.distinct()
+        // Prefer the network's own labels/words when available (e.g. loaded from disk)
+        val effectiveLabels = if (this.labels.isNotEmpty()) this.labels
+            else trainLines.map { it.split(";")[0].trim() }.distinct()
+        val effectiveWords = if (this.words.isNotEmpty()) this.words
+            else trainLines.flatMap { it.split(";", limit = 2)[1].trim().lowercase()
+                .split(Regex("\\s+")).filter { it.isNotBlank() } }.distinct()
 
         val actuals = mutableListOf<DoubleArray>()
         val predicteds = mutableListOf<DoubleArray>()
@@ -137,8 +154,10 @@ class TextClassifierNeuralNetwork(
             val label = parts[0].trim()
             val description = parts[1].trim()
 
-            val inputVec = DoubleArray(words.size) { i -> if (description.lowercase().contains(words[i])) 1.0 else 0.0 }
-            val targetVec = DoubleArray(labels.size) { i -> if (labels[i] == label) 1.0 else 0.0 }
+            // Use exact word-set membership (not substring contains)
+            val descWords = description.lowercase().split(Regex("\\s+")).toSet()
+            val inputVec = DoubleArray(effectiveWords.size) { i -> if (effectiveWords[i] in descWords) 1.0 else 0.0 }
+            val targetVec = DoubleArray(effectiveLabels.size) { i -> if (effectiveLabels[i] == label) 1.0 else 0.0 }
 
             actuals.add(targetVec)
             predicteds.add(predict(inputVec))
@@ -191,16 +210,38 @@ class TextClassifierNeuralNetwork(
     }
 
     /**
-     * Saves the network to a standalone binary file at [path].
+     * Saves the network weights to a standalone binary file at [path].
+     * This file contains only the weight block — use [saveModel] for a fully self-contained file.
      */
     fun save(path: String) {
         DataOutputStream(BufferedOutputStream(FileOutputStream(path))).use { save(it) }
     }
 
+    /**
+     * Saves the complete self-contained model — labels, vocabulary, and network weights — to [path].
+     * The resulting file can be fully restored (including labels and words) via [loadModel].
+     */
+    fun saveModel(path: String) {
+        DataOutputStream(BufferedOutputStream(FileOutputStream(path))).use { out ->
+            out.writeInt(MODEL_VERSION)
+            out.writeInt(labels.size)
+            labels.forEach { out.writeUTF(it) }
+            out.writeInt(words.size)
+            words.forEach { out.writeUTF(it) }
+            save(out)
+        }
+    }
+
     companion object {
+        // Version history:
+        //  1 – sigmoid output + MSE loss (broken: L1 over-regularization destroyed input weights)
+        //  2 – softmax output + cross-entropy loss, lambda=0 for production training
+        const val MODEL_VERSION = 2
+
         /**
          * Restores a [TextClassifierNeuralNetwork] from a [DataInputStream].
          * The stream must be positioned at the start of data written by [save].
+         * Labels and vocabulary are NOT included — use [loadModel] to restore a full model.
          */
         fun load(input: DataInputStream): TextClassifierNeuralNetwork {
             val inputSize = input.readInt()
@@ -217,9 +258,34 @@ class TextClassifierNeuralNetwork(
 
         /**
          * Loads a [TextClassifierNeuralNetwork] from a standalone binary file at [path].
+         * This only reads the raw weight block — use [loadModel] to restore a full self-contained model.
          */
-        fun load(path: String): TextClassifierNeuralNetwork {
-            return DataInputStream(BufferedInputStream(FileInputStream(path))).use { load(it) }
+        fun load(path: String): TextClassifierNeuralNetwork =
+            DataInputStream(BufferedInputStream(FileInputStream(path))).use { load(it) }
+
+        /**
+         * Restores a fully self-contained [TextClassifierNeuralNetwork] — including labels and
+         * vocabulary — from a file previously written by [saveModel].
+         */
+        fun loadModel(path: String): TextClassifierNeuralNetwork {
+            DataInputStream(BufferedInputStream(FileInputStream(path))).use { input ->
+                val version = input.readInt()
+                require(version == MODEL_VERSION) {
+                    "Unsupported model version: $version (expected $MODEL_VERSION)"
+                }
+                val labels    = List(input.readInt()) { input.readUTF() }
+                val words     = List(input.readInt()) { input.readUTF() }
+                val inputSize  = input.readInt()
+                val hiddenSize = input.readInt()
+                val outputSize = input.readInt()
+                val lambda     = input.readDouble()
+                val nn = TextClassifierNeuralNetwork(inputSize, hiddenSize, outputSize, lambda, labels, words)
+                for (i in 0 until inputSize)  for (j in 0 until hiddenSize)  nn.weightsIH[i][j] = input.readDouble()
+                for (i in 0 until hiddenSize) for (j in 0 until outputSize)  nn.weightsHO[i][j] = input.readDouble()
+                for (j in 0 until hiddenSize) nn.biasH[j] = input.readDouble()
+                for (j in 0 until outputSize) nn.biasO[j] = input.readDouble()
+                return nn
+            }
         }
     }
 }

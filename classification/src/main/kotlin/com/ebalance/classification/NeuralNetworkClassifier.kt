@@ -4,27 +4,14 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import org.slf4j.LoggerFactory
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
-import java.io.DataInputStream
-import java.io.DataOutputStream
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 
 /**
  * Adapter that wraps [TextClassifierNeuralNetwork] and provides a text-level interface:
  * training from raw "LABEL;Description" strings, model persistence, and text prediction.
  *
- * ## Model file format (version 1)
- * ```
- * int   version
- * int   labelsCount
- * UTF   label[0..labelsCount-1]
- * int   wordsCount
- * UTF   word[0..wordsCount-1]
- * ---   TextClassifierNeuralNetwork binary block (see its save/load) ---
- * ```
+ * Model persistence is fully delegated to [TextClassifierNeuralNetwork.saveModel] and
+ * [TextClassifierNeuralNetwork.loadModel], which own the binary format.
  *
  * @param modelPath  Path used by [save] and [load].
  * @param hiddenSize Number of hidden neurons for newly created networks.
@@ -36,66 +23,67 @@ class NeuralNetworkClassifier(
     private val log = LoggerFactory.getLogger(NeuralNetworkClassifier::class.java)
 
     private var network: TextClassifierNeuralNetwork? = null
-    private var labels: List<String> = emptyList()
-    private var words: List<String> = emptyList()
 
-    fun isModelLoaded(): Boolean = network != null && labels.isNotEmpty() && words.isNotEmpty()
+    fun isModelLoaded(): Boolean =
+        network != null && network!!.labels.isNotEmpty() && network!!.words.isNotEmpty()
 
     /**
      * Trains the network from raw [trainData] in "LABEL;Description" format,
      * then automatically saves the model to [modelPath].
      *
-     * @param trainData  Multi-line string where each line is "LABEL;Description".
-     * @param epochs     Training iterations over the full dataset.
+     * @param trainData   Multi-line string where each line is "LABEL;Description".
+     * @param epochs      Training iterations over the full dataset.
      * @param learningRate Gradient descent step size.
      */
     fun train(trainData: String, epochs: Int = 500, learningRate: Double = 0.1) {
         val lines = trainData.lines().filter { it.isNotBlank() }
 
-        labels = lines.map { it.split(";")[0].trim() }.distinct()
-        words = lines.flatMap { it.split(";")[1].trim().lowercase().split(" ") }.distinct()
+        val labels = lines.map { it.split(";")[0].trim() }.distinct()
+        // Split on whitespace runs and drop blank tokens (avoids empty-string feature pollution)
+        val words  = lines.flatMap { it.split(";", limit = 2)[1].trim().lowercase()
+            .split(Regex("\\s+")).filter { w -> w.isNotBlank() } }.distinct()
+
+        // Inverse-frequency class weights to compensate for class imbalance
+        val labelCounts = lines.groupingBy { it.split(";")[0].trim() }.eachCount()
+        val avgCount = labelCounts.values.average()
+        val classWeights = labels.associateWith { label -> avgCount / (labelCounts[label] ?: 1) }
 
         log.info("Training network — labels=${labels.size}, vocab=${words.size}, epochs=$epochs")
 
-        network = TextClassifierNeuralNetwork(words.size, hiddenSize, labels.size)
+        // lambda=0.0: L1 regularization destroys input→hidden weights for sparse bag-of-words
+        // inputs (word appears 1×/epoch → L1 drain >> gradient signal → weight → 0).
+        // With 199 training samples, overfitting is not a concern.
+        val nn = TextClassifierNeuralNetwork(words.size, hiddenSize, labels.size, lambda = 0.0, labels = labels, words = words)
 
         repeat(epochs) {
             lines.forEach { line ->
                 val parts = line.split(";", limit = 2)
-                val inputVec = DoubleArray(words.size) { i ->
-                    if (parts[1].trim().lowercase().contains(words[i])) 1.0 else 0.0
-                }
-                val targetVec = DoubleArray(labels.size) { i ->
-                    if (labels[i] == parts[0].trim()) 1.0 else 0.0
-                }
-                network!!.train(inputVec, targetVec, learningRate)
+                val label = parts[0].trim()
+                // Exact word-set membership instead of substring contains
+                val descWords = parts[1].trim().lowercase().split(Regex("\\s+")).toSet()
+                val inputVec = DoubleArray(words.size) { i -> if (words[i] in descWords) 1.0 else 0.0 }
+                val targetVec = DoubleArray(labels.size) { i -> if (labels[i] == label) 1.0 else 0.0 }
+                val weight = classWeights[label] ?: 1.0
+                nn.train(inputVec, targetVec, learningRate, weight)
             }
         }
 
+        network = nn
         save()
     }
 
     /**
-     * Persists labels, vocabulary, and network weights to [modelPath].
+     * Persists the trained model to [modelPath] via [TextClassifierNeuralNetwork.saveModel].
      * @throws IllegalStateException if the network has not been trained yet.
      */
     fun save() {
         val nn = requireNotNull(network) { "No model to save — call train() first" }
-
-        DataOutputStream(BufferedOutputStream(FileOutputStream(modelPath))).use { out ->
-            out.writeInt(FILE_VERSION)
-            out.writeInt(labels.size)
-            labels.forEach { out.writeUTF(it) }
-            out.writeInt(words.size)
-            words.forEach { out.writeUTF(it) }
-            nn.save(out)
-        }
-
+        nn.saveModel(modelPath)
         log.info("Model saved to $modelPath (${File(modelPath).length()} bytes)")
     }
 
     /**
-     * Loads labels, vocabulary, and network weights from [modelPath].
+     * Loads the model from [modelPath] via [TextClassifierNeuralNetwork.loadModel].
      * Does nothing if the file does not exist.
      */
     fun load() {
@@ -105,15 +93,8 @@ class NeuralNetworkClassifier(
             return
         }
 
-        DataInputStream(BufferedInputStream(FileInputStream(modelPath))).use { input ->
-            val version = input.readInt()
-            require(version == FILE_VERSION) { "Unsupported model version: $version (expected $FILE_VERSION)" }
-            labels = List(input.readInt()) { input.readUTF() }
-            words = List(input.readInt()) { input.readUTF() }
-            network = TextClassifierNeuralNetwork.load(input)
-        }
-
-        log.info("Model loaded from $modelPath — labels=${labels.size}, vocab=${words.size}")
+        network = TextClassifierNeuralNetwork.loadModel(modelPath)
+        log.info("Model loaded from $modelPath — labels=${network!!.labels.size}, vocab=${network!!.words.size}")
     }
 
     /**
@@ -127,12 +108,12 @@ class NeuralNetworkClassifier(
         if (!isModelLoaded()) load()
         val nn = network ?: return UNKNOWN
 
-        val inputVec = DoubleArray(words.size) { i ->
-            if (text.lowercase().contains(words[i])) 1.0 else 0.0
-        }
+        val words = nn.words
+        val textWords = text.lowercase().split(Regex("\\s+")).toSet()
+        val inputVec = DoubleArray(words.size) { i -> if (words[i] in textWords) 1.0 else 0.0 }
         val output = nn.predict(inputVec)
         val bestIdx = output.indices.maxByOrNull { output[it] } ?: 0
-        return labels[bestIdx] to output[bestIdx]
+        return nn.labels[bestIdx] to output[bestIdx]
     }
 
     /**
@@ -166,11 +147,14 @@ class NeuralNetworkClassifier(
             return ClassificationError.ModelNotLoadedErr("Model not loaded — run train() first").left()
         }
 
-        return runCatching { descriptions.map { classify(it).getOrNull() ?: ClassificationResult(UNKNOWN.first, UNKNOWN.second) } }
-            .fold(
-                onSuccess = { it.right() },
-                onFailure = { e -> ClassificationError.ClassificationErr(e.message ?: "Unknown error").left() }
-            )
+        return runCatching {
+            descriptions.map {
+                classify(it).getOrNull() ?: ClassificationResult(UNKNOWN.first, UNKNOWN.second)
+            }
+        }.fold(
+            onSuccess = { it.right() },
+            onFailure = { e -> ClassificationError.ClassificationErr(e.message ?: "Unknown error").left() }
+        )
     }
 
     data class ClassificationResult(val label: String, val confidence: Double)
@@ -181,7 +165,6 @@ class NeuralNetworkClassifier(
     }
 
     companion object {
-        private const val FILE_VERSION = 1
-        private val UNKNOWN = "DESCONHECIDA" to 0.0
+        val UNKNOWN = "DESCONHECIDA" to 0.0
     }
 }
