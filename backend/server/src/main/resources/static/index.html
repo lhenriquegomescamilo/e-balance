@@ -1,7 +1,613 @@
-<html>
- <head>
- </head>
- <body>
-   <h1>Hello Ktor!</h1>
- </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>e-Balance Dashboard</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' } }
+        }
+      }
+    }
+  </script>
+
+  <!-- Flowbite CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" />
+
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.48.0/dist/apexcharts.min.js"></script>
+
+  <!-- Font Awesome icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    *, *::before, *::after { transition: background-color 0.2s, border-color 0.2s, color 0.1s; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
+  </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans antialiased">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════════════════════════ -->
+<aside id="sidebar"
+  class="fixed top-0 left-0 z-40 h-screen w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-sm
+         transform -translate-x-full md:translate-x-0 transition-transform duration-300">
+
+  <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+    <div class="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center shadow-lg">
+      <i class="fa-solid fa-scale-balanced text-white text-sm"></i>
+    </div>
+    <span class="text-lg font-bold tracking-tight">e-Balance</span>
+  </div>
+
+  <nav class="px-3 py-4 space-y-1">
+    <p class="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Main</p>
+
+    <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       bg-brand-500 text-white cursor-pointer">
+      <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+    </a>
+    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-receipt w-5 text-center"></i> Transactions
+    </a>
+    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-gear w-5 text-center"></i> Settings
+    </a>
+  </nav>
+
+  <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold">LC</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">L. Camilo</p>
+        <p class="text-xs text-gray-400 truncate">Admin</p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div id="sidebar-overlay" onclick="closeSidebar()"
+     class="fixed inset-0 z-30 bg-black/50 hidden md:hidden"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NAVBAR
+════════════════════════════════════════════════════════════════ -->
+<header class="fixed top-0 left-0 md:left-64 right-0 z-30 h-16 bg-white dark:bg-gray-900
+               border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-3 shadow-sm">
+
+  <button onclick="toggleSidebar()"
+          class="md:hidden p-2 rounded-lg text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+
+  <div class="flex-1 max-w-md">
+    <div class="relative">
+      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+      <input type="text" placeholder="Search transactions…"
+             class="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600
+                    bg-slate-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                    placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2 ml-auto">
+    <button class="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800">
+      <i class="fa-solid fa-bell"></i>
+      <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+    </button>
+
+    <!-- Theme Toggle: sun = shown in dark mode, moon = shown in light mode -->
+    <button id="theme-toggle" onclick="toggleTheme()"
+            class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
+            title="Toggle light/dark mode">
+      <i id="icon-sun"  class="fa-solid fa-sun  hidden text-yellow-400"></i>
+      <i id="icon-moon" class="fa-solid fa-moon text-gray-500"></i>
+    </button>
+
+    <button id="user-menu-btn" data-dropdown-toggle="user-dropdown"
+            class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800">
+      <div class="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold">LC</div>
+      <span class="text-sm font-medium hidden sm:block">L. Camilo</span>
+      <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+    </button>
+    <div id="user-dropdown"
+         class="z-50 hidden bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700
+                rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 w-44">
+      <div class="px-4 py-3">
+        <p class="text-sm font-medium">L. Camilo</p>
+        <p class="text-xs text-gray-400 truncate">admin@ebalance.io</p>
+      </div>
+      <ul class="py-1 text-sm text-gray-700 dark:text-gray-200">
+        <li><a href="#" class="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-gray-700">Profile</a></li>
+        <li><a href="#" class="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-gray-700">Settings</a></li>
+      </ul>
+      <div class="py-1">
+        <a href="#" class="block px-4 py-2 text-sm text-red-500 hover:bg-slate-100 dark:hover:bg-gray-700">Sign out</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════════════════════════════ -->
+<main class="pt-16 md:pl-64 min-h-screen">
+  <div class="p-4 md:p-6 space-y-6 max-w-7xl">
+
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div>
+        <h1 class="text-2xl font-bold">Financial Overview</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Track your income, expenses, and net balance</p>
+      </div>
+      <!-- API status badge -->
+      <span id="api-status"
+            class="text-xs bg-slate-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-3 py-1.5 rounded-full self-start sm:self-auto">
+        <i class="fa-regular fa-calendar mr-1"></i> Loading…
+      </span>
+    </div>
+
+    <!-- ── Error banner (hidden by default) ── -->
+    <div id="error-banner"
+         class="hidden flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20
+                border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+      <i class="fa-solid fa-circle-exclamation flex-shrink-0"></i>
+      <span id="error-message">Failed to load data.</span>
+    </div>
+
+    <!-- ── Filters ── -->
+    <div class="flex flex-wrap gap-3 items-center p-4 bg-white dark:bg-gray-900 rounded-xl
+                border border-gray-200 dark:border-gray-700 shadow-sm">
+      <i class="fa-solid fa-sliders text-brand-500"></i>
+      <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Filters:</span>
+
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 dark:text-gray-400">From</label>
+        <input type="date" id="filter-from"
+               class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                      text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 dark:text-gray-400">To</label>
+        <input type="date" id="filter-to"
+               class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                      text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+
+      <select id="filter-category"
+              class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                     text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <option value="ALL">All Categories</option>
+      </select>
+
+      <select id="filter-type"
+              class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                     text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <option value="ALL">Income & Expenses</option>
+        <option value="INCOME">Income only</option>
+        <option value="EXPENSE">Expenses only</option>
+      </select>
+
+      <!-- Loading spinner (shown while fetching) -->
+      <i id="loading-spinner" class="fa-solid fa-circle-notch fa-spin text-brand-500 hidden"></i>
+
+      <button onclick="resetFilters()"
+              class="ml-auto text-xs text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1">
+        <i class="fa-solid fa-rotate-left"></i> Reset
+      </button>
+    </div>
+
+    <!-- ── Stats Cards ── -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Income</span>
+          <div class="w-9 h-9 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+            <i class="fa-solid fa-arrow-up text-green-500 text-sm"></i>
+          </div>
+        </div>
+        <p id="stat-income" class="text-2xl font-bold text-green-500">—</p>
+        <p class="text-xs text-gray-400 mt-1">Filtered period</p>
+      </div>
+
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Expenses</span>
+          <div class="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
+            <i class="fa-solid fa-arrow-down text-red-500 text-sm"></i>
+          </div>
+        </div>
+        <p id="stat-expenses" class="text-2xl font-bold text-red-500">—</p>
+        <p class="text-xs text-gray-400 mt-1">Filtered period</p>
+      </div>
+
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Net Balance</span>
+          <div class="w-9 h-9 rounded-lg bg-brand-500/10 flex items-center justify-center">
+            <i class="fa-solid fa-scale-balanced text-brand-500 text-sm"></i>
+          </div>
+        </div>
+        <p id="stat-balance" class="text-2xl font-bold">—</p>
+        <p class="text-xs text-gray-400 mt-1">Income − Expenses</p>
+      </div>
+    </div>
+
+    <!-- ── Chart + Table ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+      <!-- Donut Chart -->
+      <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Spending by Category</h2>
+        <p class="text-xs text-gray-400 mb-4">Expenses only · filtered period</p>
+        <div id="donut-chart" class="flex justify-center"></div>
+        <div id="chart-legend" class="mt-4 space-y-1.5"></div>
+      </div>
+
+      <!-- Transaction Table -->
+      <div class="lg:col-span-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Recent Transactions</h2>
+          <span id="tx-count"
+                class="text-xs bg-slate-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
+            — entries
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="text-xs uppercase text-gray-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-800/50">
+              <tr>
+                <th class="px-5 py-3">Category</th>
+                <th class="px-5 py-3">Description</th>
+                <th class="px-5 py-3">Date</th>
+                <th class="px-5 py-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="tx-body" class="divide-y divide-gray-100 dark:divide-gray-800"></tbody>
+          </table>
+          <div id="tx-empty" class="hidden text-center py-10 text-gray-400 dark:text-gray-500 text-sm">
+            <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+            No transactions match the selected filters.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- Flowbite JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════════════════════ */
+const API_BASE = '/api/v1';
+
+const PALETTE = [
+  '#6366f1','#06b6d4','#f59e0b','#10b981','#ef4444',
+  '#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6',
+  '#84cc16','#e11d48','#0ea5e9','#a78bfa','#34d399'
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME TOGGLE
+════════════════════════════════════════════════════════════════ */
+const html = document.documentElement;
+
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && prefersDark)) html.classList.add('dark');
+  updateThemeIcons();
+}
+
+function toggleTheme() {
+  html.classList.toggle('dark');
+  localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeIcons();
+  // Re-render chart so ApexCharts picks up new text/stroke colours
+  if (lastSummaryData) renderChart(lastSummaryData.categories);
+}
+
+function updateThemeIcons() {
+  const dark = html.classList.contains('dark');
+  document.getElementById('icon-sun').classList.toggle('hidden', !dark);
+  document.getElementById('icon-moon').classList.toggle('hidden', dark);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR (mobile)
+════════════════════════════════════════════════════════════════ */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DATE FILTER DEFAULTS  (first day of current month → today)
+════════════════════════════════════════════════════════════════ */
+function initDateFilters() {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  document.getElementById('filter-from').value = toIso(first);
+  document.getElementById('filter-to').value   = toIso(now);
+}
+
+const toIso = d => d.toISOString().split('T')[0];
+
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORY DROPDOWN  — populated from GET /api/v1/categories
+════════════════════════════════════════════════════════════════ */
+async function populateCategoryFilter() {
+  try {
+    const res  = await fetch(`${API_BASE}/categories`);
+    const data = await res.json();
+    const sel  = document.getElementById('filter-category');
+    data.categories.forEach(cat => {
+      const opt      = document.createElement('option');
+      opt.value      = cat.id;      // numeric ID sent as query param
+      opt.textContent = cat.name;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.warn('Could not load categories:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUILD QUERY PARAMS FROM CURRENT FILTER STATE
+════════════════════════════════════════════════════════════════ */
+function buildParams() {
+  const from = document.getElementById('filter-from').value;
+  const to   = document.getElementById('filter-to').value;
+  const cat  = document.getElementById('filter-category').value;
+  const type = document.getElementById('filter-type').value;
+
+  const p = new URLSearchParams();
+  if (from) p.set('startDate', from);
+  if (to)   p.set('endDate', to);
+  if (cat !== 'ALL') p.set('categories', cat);   // single category ID
+  if (type !== 'ALL') p.set('type', type);
+  return p;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   API FETCH HELPERS
+════════════════════════════════════════════════════════════════ */
+async function apiFetch(path) {
+  const res = await fetch(path);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATS CARDS
+════════════════════════════════════════════════════════════════ */
+// Formats an absolute value as "R$ 1.234,56"
+const fmt = n => 'R$ ' + Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+function updateStats(summary) {
+  document.getElementById('stat-income').textContent   = fmt(summary.totalIncome);
+  document.getElementById('stat-expenses').textContent = fmt(summary.totalExpenses);
+
+  const balEl = document.getElementById('stat-balance');
+  balEl.textContent = (summary.netBalance < 0 ? '- ' : '') + fmt(summary.netBalance);
+  balEl.className   = 'text-2xl font-bold ' + (summary.netBalance >= 0 ? 'text-green-500' : 'text-red-500');
+
+  document.getElementById('api-status').innerHTML =
+    `<i class="fa-regular fa-calendar mr-1"></i>${summary.transactionCount} transactions`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DONUT CHART  (ApexCharts)
+   Driven by the `categories` array from /summary
+════════════════════════════════════════════════════════════════ */
+let chartInstance = null;
+
+function renderChart(categories) {
+  // Keep only categories that actually have expenses
+  const expenseCats = categories.filter(c => c.totalExpenses > 0);
+  const dark        = html.classList.contains('dark');
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  if (expenseCats.length === 0) {
+    document.getElementById('donut-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-8">No expense data</p>';
+    document.getElementById('chart-legend').innerHTML = '';
+    return;
+  }
+
+  const labels = expenseCats.map(c => c.categoryName);
+  const series = expenseCats.map(c => parseFloat(c.totalExpenses.toFixed(2)));
+  const colors = labels.map((_, i) => PALETTE[i % PALETTE.length]);
+
+  chartInstance = new ApexCharts(document.getElementById('donut-chart'), {
+    series,
+    chart:  { type: 'donut', height: 260, background: 'transparent', toolbar: { show: false } },
+    labels,
+    colors,
+    legend: { show: false },
+    dataLabels: { enabled: false },
+    stroke: { width: 2, colors: [dark ? '#111827' : '#f8fafc'] },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '68%',
+          labels: {
+            show: true,
+            total: {
+              show: true, label: 'Total',
+              color: dark ? '#e5e7eb' : '#374151',
+              formatter: w => 'R$ ' + w.globals.seriesTotals
+                .reduce((a, b) => a + b, 0)
+                .toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+            },
+            value: {
+              color: dark ? '#e5e7eb' : '#374151',
+              formatter: v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+            }
+          }
+        }
+      }
+    },
+    tooltip: { y: { formatter: v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) } },
+    theme:  { mode: dark ? 'dark' : 'light' }
+  });
+  chartInstance.render();
+
+  // Custom legend with server-calculated percentages
+  document.getElementById('chart-legend').innerHTML = expenseCats.map((cat, i) => `
+    <div class="flex items-center justify-between gap-2 text-xs">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${colors[i]}"></span>
+        <span class="truncate text-gray-600 dark:text-gray-400">${cat.categoryName}</span>
+      </div>
+      <span class="font-medium text-gray-700 dark:text-gray-300 flex-shrink-0">
+        ${cat.percentageOfExpenses.toFixed(1)}%
+      </span>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TRANSACTION TABLE
+   Driven by the `transactions` array from /transactions
+════════════════════════════════════════════════════════════════ */
+const catColors = {};
+function getCatColor(name) {
+  if (!catColors[name]) {
+    catColors[name] = PALETTE[Object.keys(catColors).length % PALETTE.length];
+  }
+  return catColors[name];
+}
+
+function renderTable(transactions) {
+  const tbody = document.getElementById('tx-body');
+  const empty = document.getElementById('tx-empty');
+  const count = document.getElementById('tx-count');
+
+  count.textContent = `${transactions.length} ${transactions.length === 1 ? 'entry' : 'entries'}`;
+
+  if (transactions.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = transactions.map(tx => {
+    const isIncome  = tx.type === 'INCOME';
+    const amtClass  = isIncome ? 'text-green-500 font-semibold' : 'text-red-500 font-semibold';
+    const amtStr    = (isIncome ? '+ ' : '- ') + fmt(tx.value);
+    const color     = getCatColor(tx.categoryName);
+    const dateStr   = new Date(tx.operatedAt + 'T00:00:00').toLocaleDateString('pt-BR');
+
+    return `
+      <tr class="hover:bg-slate-50 dark:hover:bg-gray-800/50 transition-colors">
+        <td class="px-5 py-3">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
+                style="background:${color}22; color:${color}; border:1px solid ${color}44">
+            ${tx.categoryName}
+          </span>
+        </td>
+        <td class="px-5 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">${tx.description}</td>
+        <td class="px-5 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">${dateStr}</td>
+        <td class="px-5 py-3 text-right whitespace-nowrap ${amtClass}">${amtStr}</td>
+      </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING / ERROR UI HELPERS
+════════════════════════════════════════════════════════════════ */
+function setLoading(on) {
+  document.getElementById('loading-spinner').classList.toggle('hidden', !on);
+}
+
+function showError(msg) {
+  const banner = document.getElementById('error-banner');
+  document.getElementById('error-message').textContent = msg;
+  banner.classList.remove('hidden');
+}
+
+function hideError() {
+  document.getElementById('error-banner').classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MASTER UPDATE  — fetches both endpoints in parallel
+════════════════════════════════════════════════════════════════ */
+let lastSummaryData = null;
+
+async function updateAll() {
+  setLoading(true);
+  hideError();
+
+  const params = buildParams();
+
+  try {
+    const [summaryData, txData] = await Promise.all([
+      apiFetch(`${API_BASE}/transactions/summary?${params}`),
+      apiFetch(`${API_BASE}/transactions?${params}`)
+    ]);
+
+    lastSummaryData = summaryData;
+
+    updateStats(summaryData.summary);
+    renderChart(summaryData.categories);
+    renderTable(txData.transactions);
+  } catch (e) {
+    showError(`Failed to load data: ${e.message}`);
+    console.error(e);
+  } finally {
+    setLoading(false);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET FILTERS
+════════════════════════════════════════════════════════════════ */
+function resetFilters() {
+  initDateFilters();
+  document.getElementById('filter-category').value = 'ALL';
+  document.getElementById('filter-type').value     = 'ALL';
+  updateAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
+  initDateFilters();
+  await populateCategoryFilter();   // fetch category list for dropdown
+  await updateAll();                // initial data load
+
+  // Wire all filter inputs to trigger a refresh
+  ['filter-from', 'filter-to', 'filter-category', 'filter-type']
+    .forEach(id => document.getElementById(id).addEventListener('change', updateAll));
+});
+</script>
+</body>
 </html>

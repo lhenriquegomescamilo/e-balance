@@ -1,42 +1,44 @@
 package com.ebalance
 
-import io.ktor.serialization.kotlinx.json.*
+import com.ebalance.transactions.transactionModule
 import io.ktor.server.application.*
-import io.ktor.server.http.content.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.defaultheaders.*
-import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.server.velocity.*
 import kotlinx.rpc.krpc.ktor.server.Krpc
 import kotlinx.rpc.krpc.ktor.server.rpc
 import kotlinx.rpc.krpc.serialization.json.*
-import org.apache.velocity.runtime.RuntimeConstants
-import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
 
 fun Application.configureFrameworks() {
+    // Read the DB path from application.yaml; fall back to relative path for local dev.
+    // Gradle :server:run sets workingDir = backend/server/, so the default is ../../e-balance.db
+    val dbPath = environment.config.propertyOrNull("database.path")?.getString()
+        ?: "../../e-balance.db"
+
+    val resolvedPath = java.io.File(dbPath).canonicalPath
+    environment.log.info("Database path → $resolvedPath (exists: ${java.io.File(resolvedPath).exists()})")
+
     install(Koin) {
         slf4jLogger()
-        modules(module {
-            single<HelloService> {
-                HelloService {
-                    println(environment.log.info("Hello, World!"))
+        modules(
+            module {
+                single<HelloService> {
+                    HelloService {
+                        println(environment.log.info("Hello, World!"))
+                    }
                 }
-            }
-        })
+            },
+            transactionModule(dbPath)
+        )
     }
+
     install(Krpc)
     routing {
         rpc("/api") {
             rpcConfig {
-                serialization {
-                    json()
-                }
+                serialization { json() }
             }
-        
             registerService<SampleService> { SampleServiceImpl() }
         }
     }

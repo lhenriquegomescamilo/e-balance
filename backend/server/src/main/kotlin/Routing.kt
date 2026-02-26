@@ -1,28 +1,31 @@
 package com.ebalance
 
-import io.ktor.serialization.kotlinx.json.*
+import com.ebalance.transactions.application.GetCategoriesUseCase
+import com.ebalance.transactions.application.GetTransactionSummaryUseCase
+import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.infrastructure.web.transactionRoutes
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
-import io.ktor.server.plugins.contentnegotiation.*
-import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.server.velocity.*
-import kotlinx.rpc.krpc.ktor.server.Krpc
-import kotlinx.rpc.krpc.ktor.server.rpc
-import kotlinx.rpc.krpc.serialization.json.*
-import org.apache.velocity.runtime.RuntimeConstants
-import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader
-import org.koin.dsl.module
-import org.koin.ktor.plugin.Koin
-import org.koin.logger.slf4jLogger
+import org.koin.ktor.ext.inject
 
 fun Application.configureRouting() {
+    // Resolve use-case singletons from Koin (configured in Frameworks.kt)
+    val summaryUseCase: GetTransactionSummaryUseCase by inject()
+    val transactionsUseCase: GetTransactionsUseCase by inject()
+    val categoriesUseCase: GetCategoriesUseCase by inject()
+
     routing {
-        get("/") {
-            call.respondText("Hello World!")
-        }
-        // Static plugin. Try to access `/static/index.html`
+        // Redirect root to the dashboard
+        get("/") { call.respondRedirect("/static/index.html") }
+
+        // Serve the static dashboard at /static/*
         staticResources("/static", "static")
+
+        // REST API — all endpoints live under /api/v1
+        route("/api/v1") {
+            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase)
+        }
     }
 }
