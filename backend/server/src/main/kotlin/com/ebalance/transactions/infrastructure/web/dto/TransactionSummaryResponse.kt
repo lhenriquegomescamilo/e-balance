@@ -56,6 +56,30 @@ data class TransactionListResponse(
     val total: Int
 )
 
+// ── Monthly-by-category endpoint (/api/v1/transactions/monthly-by-category) ──
+
+@Serializable
+data class MonthlyCategoryDataDto(
+    val monthYear: String,          // "YYYY-MM"
+    val totalIncome: Double,
+    val totalExpenses: Double,
+    val transactionCount: Int
+)
+
+@Serializable
+data class MonthlyCategorySeriesDto(
+    val categoryId: Long,
+    val categoryName: String,
+    val monthlyData: List<MonthlyCategoryDataDto>   // zero-filled, one entry per month
+)
+
+@Serializable
+data class MonthlySummaryResponse(
+    val months: List<String>,                       // sorted "YYYY-MM" list
+    val series: List<MonthlyCategorySeriesDto>,     // sorted by total expenses desc
+    val filters: AppliedFiltersDto
+)
+
 // ── Categories endpoint (/api/v1/categories) ─────────────────────────────────
 
 @Serializable

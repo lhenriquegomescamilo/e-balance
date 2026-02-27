@@ -167,6 +167,81 @@
       <span id="error-message">Failed to load data.</span>
     </div>
 
+    <!-- ── Monthly Trend Chart (full DB period, unaffected by filters) ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6">
+
+      <!-- Card header -->
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-5">
+
+        <!-- KPI pills -->
+        <div class="grid grid-cols-2 gap-x-8">
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">All-time Expenses</p>
+            <p id="monthly-total-expenses" class="text-2xl font-bold text-red-500">—</p>
+          </div>
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Top Category</p>
+            <p id="monthly-top-category" class="text-xl font-bold truncate max-w-[160px]">—</p>
+          </div>
+        </div>
+
+        <!-- View-type dropdown (Expenses / Income) -->
+        <div class="flex items-center gap-2 self-start">
+          <span class="text-xs text-gray-400 dark:text-gray-500">Show:</span>
+          <button id="monthly-view-btn"
+                  data-dropdown-toggle="monthly-view-dropdown"
+                  data-dropdown-placement="bottom-end"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg
+                         border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                         text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <span id="monthly-view-label">Expenses</span>
+            <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+          </button>
+
+          <div id="monthly-view-dropdown"
+               class="z-10 hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600
+                      rounded-xl shadow-lg w-36">
+            <ul class="p-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <li>
+                <a href="#" onclick="setMonthlyView('EXPENSE'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-down text-red-400 text-xs w-4"></i> Expenses
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="setMonthlyView('INCOME'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-up text-green-400 text-xs w-4"></i> Income
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Area chart -->
+      <div id="monthly-chart"></div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 mt-5 pt-4">
+        <p class="text-xs text-gray-400 dark:text-gray-500">
+          <i class="fa-solid fa-database mr-1"></i>
+          Entire database · all categories · grouped by calendar month
+        </p>
+        <button id="monthly-toggle-all-btn" onclick="toggleAllSeries()"
+                class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg
+                       border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700
+                       focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
+          <i id="monthly-toggle-icon" class="fa-solid fa-eye-slash text-gray-400"></i>
+          <span id="monthly-toggle-label">Deselect All</span>
+        </button>
+      </div>
+
+    </div><!-- /monthly trend card -->
+
     <!-- ── Filters ── -->
     <div class="flex flex-wrap gap-3 items-center p-4 bg-white dark:bg-gray-900 rounded-xl
                 border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -285,6 +360,7 @@
       </div>
 
     </div>
+
   </div>
 </main>
 
@@ -319,8 +395,9 @@ function toggleTheme() {
   html.classList.toggle('dark');
   localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
   updateThemeIcons();
-  // Re-render chart so ApexCharts picks up new text/stroke colours
+  // Re-render both charts so ApexCharts picks up new text/stroke colours
   if (lastSummaryData) renderChart(lastSummaryData.categories);
+  if (lastMonthlyData) renderMonthlyChart(lastMonthlyData);
 }
 
 function updateThemeIcons() {
@@ -346,8 +423,7 @@ function closeSidebar() {
 ════════════════════════════════════════════════════════════════ */
 function initDateFilters() {
   const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  document.getElementById('filter-from').value = toIso(first);
+  document.getElementById('filter-from').value = '2025-11-01';
   document.getElementById('filter-to').value   = toIso(now);
 }
 
@@ -404,8 +480,8 @@ async function apiFetch(path) {
 /* ═══════════════════════════════════════════════════════════════
    STATS CARDS
 ════════════════════════════════════════════════════════════════ */
-// Formats an absolute value as "R$ 1.234,56"
-const fmt = n => 'R$ ' + Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+// Formats an absolute value as "€ 1.234,56"
+const fmt = n => '€ ' + Math.abs(n).toLocaleString('pt-PT', { minimumFractionDigits: 2 });
 
 function updateStats(summary) {
   document.getElementById('stat-income').textContent   = fmt(summary.totalIncome);
@@ -460,19 +536,19 @@ function renderChart(categories) {
             total: {
               show: true, label: 'Total',
               color: dark ? '#e5e7eb' : '#374151',
-              formatter: w => 'R$ ' + w.globals.seriesTotals
+              formatter: w => '€ ' + w.globals.seriesTotals
                 .reduce((a, b) => a + b, 0)
-                .toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                .toLocaleString('pt-PT', { minimumFractionDigits: 2 })
             },
             value: {
               color: dark ? '#e5e7eb' : '#374151',
-              formatter: v => 'R$ ' + parseFloat(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+              formatter: v => '€ ' + parseFloat(v).toLocaleString('pt-PT', { minimumFractionDigits: 2 })
             }
           }
         }
       }
     },
-    tooltip: { y: { formatter: v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) } },
+    tooltip: { y: { formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) } },
     theme:  { mode: dark ? 'dark' : 'light' }
   });
   chartInstance.render();
@@ -521,7 +597,7 @@ function renderTable(transactions) {
     const amtClass  = isIncome ? 'text-green-500 font-semibold' : 'text-red-500 font-semibold';
     const amtStr    = (isIncome ? '+ ' : '- ') + fmt(tx.value);
     const color     = getCatColor(tx.categoryName);
-    const dateStr   = new Date(tx.operatedAt + 'T00:00:00').toLocaleDateString('pt-BR');
+    const dateStr   = new Date(tx.operatedAt + 'T00:00:00').toLocaleDateString('pt-PT');
 
     return `
       <tr class="hover:bg-slate-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -556,10 +632,12 @@ function hideError() {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   MASTER UPDATE  — fetches both endpoints in parallel
+   MASTER UPDATE  — fetches all three endpoints in parallel
 ════════════════════════════════════════════════════════════════ */
 let lastSummaryData = null;
 
+// updateAll only refreshes the filter-sensitive panels (stats, donut, table).
+// The monthly trend chart is loaded once on boot and never re-fetched on filter change.
 async function updateAll() {
   setLoading(true);
   hideError();
@@ -585,6 +663,180 @@ async function updateAll() {
   }
 }
 
+/** Fetches the full-DB monthly data once and renders the trend chart. */
+async function loadMonthlyChart() {
+  try {
+    const data = await apiFetch(
+      `${API_BASE}/transactions/monthly-by-category?${buildMonthlyParams()}`
+    );
+    lastMonthlyData = data;
+    renderMonthlyChart(data);
+  } catch (e) {
+    document.getElementById('monthly-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-10">Could not load trend data.</p>';
+    console.error('Monthly chart failed:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MONTHLY TREND CHART
+   Endpoint: GET /api/v1/transactions/monthly-by-category
+   Shows top-5 categories as smooth area series, one per month.
+   The header dropdown toggles between Expenses and Income view
+   without a new network request.
+════════════════════════════════════════════════════════════════ */
+let monthlyChartInstance = null;
+let currentMonthlyView   = 'EXPENSE';  // 'EXPENSE' | 'INCOME'
+let lastMonthlyData      = null;
+let allSeriesVisible     = true;       // tracks Select All / Deselect All state
+
+/**
+ * The monthly chart always reflects the ENTIRE database — no filter params are sent.
+ * The API defaults (no startDate/endDate/categories) return all rows.
+ */
+function buildMonthlyParams() {
+  return new URLSearchParams();
+}
+
+/** Called by the dropdown links; re-renders the chart from cached data. */
+function setMonthlyView(view) {
+  currentMonthlyView = view;
+  document.getElementById('monthly-view-label').textContent =
+    view === 'EXPENSE' ? 'Expenses' : 'Income';
+  if (lastMonthlyData) renderMonthlyChart(lastMonthlyData);
+}
+
+/**
+ * Renders (or re-renders) the multi-series area chart.
+ *
+ * Data shape from API:
+ *   { months: ["2026-01","2026-02"], series: [{ categoryName, monthlyData: [{monthYear, totalExpenses, totalIncome}] }] }
+ *
+ * Strategy:
+ *   - Pick the metric column based on currentMonthlyView.
+ *   - Take the top-5 series that have at least one non-zero data point.
+ *   - Format months as short labels ("Jan '26").
+ *   - Re-render fully on theme change or view toggle.
+ */
+function renderMonthlyChart(data) {
+  if (monthlyChartInstance) { monthlyChartInstance.destroy(); monthlyChartInstance = null; }
+
+  const metric = currentMonthlyView === 'EXPENSE' ? 'totalExpenses' : 'totalIncome';
+  const dark   = html.classList.contains('dark');
+
+  // All categories that have at least one non-zero data point for the chosen metric
+  const activeSeries = data.series
+    .filter(s => s.monthlyData.some(d => d[metric] > 0));
+
+  // Update KPI pills
+  const grandTotal = activeSeries.reduce(
+    (sum, s) => sum + s.monthlyData.reduce((a, d) => a + d[metric], 0), 0
+  );
+  document.getElementById('monthly-total-expenses').textContent =
+    '€ ' + grandTotal.toLocaleString('pt-PT', { minimumFractionDigits: 2 });
+  document.getElementById('monthly-top-category').textContent =
+    activeSeries.length > 0 ? activeSeries[0].categoryName : '—';
+
+  if (activeSeries.length === 0 || data.months.length === 0) {
+    document.getElementById('monthly-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-10">No data for the selected period</p>';
+    return;
+  }
+
+  // X-axis labels: "2026-02" → "Feb '26"
+  const labels = data.months.map(m => {
+    const [y, mo] = m.split('-');
+    return new Date(+y, +mo - 1, 1).toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
+  });
+
+  const apexSeries = activeSeries.map((cat, i) => ({
+    name: cat.categoryName,
+    data: cat.monthlyData.map(d => +d[metric].toFixed(2))
+  }));
+
+  const colors = activeSeries.map((_, i) => PALETTE[i % PALETTE.length]);
+
+  monthlyChartInstance = new ApexCharts(
+    document.getElementById('monthly-chart'),
+    {
+      series: apexSeries,
+      chart: {
+        type: 'area',
+        height: 300,
+        background: 'transparent',
+        toolbar: { show: false },
+        zoom: { enabled: false }
+      },
+      colors,
+      xaxis: {
+        categories: labels,
+        labels: { style: { colors: dark ? '#9ca3af' : '#6b7280', fontSize: '12px' } },
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      },
+      yaxis: {
+        labels: {
+          style: { colors: dark ? '#9ca3af' : '#6b7280', fontSize: '12px' },
+          formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 0 })
+        }
+      },
+      dataLabels: { enabled: false },
+      stroke:     { curve: 'smooth', width: 2 },
+      fill: {
+        type: 'gradient',
+        gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.03, stops: [0, 100] }
+      },
+      grid: {
+        borderColor: dark ? '#374151' : '#f1f5f9',
+        strokeDashArray: 4
+      },
+      legend: {
+        show: true,
+        position: 'top',
+        horizontalAlign: 'left',
+        fontSize: '12px',
+        labels: { colors: dark ? '#d1d5db' : '#374151' }
+      },
+      tooltip: {
+        theme: dark ? 'dark' : 'light',
+        y: { formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) }
+      },
+      theme: { mode: dark ? 'dark' : 'light' }
+    }
+  );
+  monthlyChartInstance.render();
+
+  // Reset toggle button to "Deselect All" whenever the chart is re-rendered
+  allSeriesVisible = true;
+  document.getElementById('monthly-toggle-icon').className  = 'fa-solid fa-eye-slash text-gray-400';
+  document.getElementById('monthly-toggle-label').textContent = 'Deselect All';
+}
+
+/**
+ * Toggles all chart series on or off using ApexCharts' show/hideSeries API.
+ * State cycles: all visible → all hidden → all visible → …
+ */
+function toggleAllSeries() {
+  if (!monthlyChartInstance || !lastMonthlyData) return;
+
+  const metric = currentMonthlyView === 'EXPENSE' ? 'totalExpenses' : 'totalIncome';
+  const names  = lastMonthlyData.series
+    .filter(s => s.monthlyData.some(d => d[metric] > 0))
+    .map(s => s.categoryName);
+
+  if (allSeriesVisible) {
+    names.forEach(n => monthlyChartInstance.hideSeries(n));
+    allSeriesVisible = false;
+    document.getElementById('monthly-toggle-icon').className   = 'fa-solid fa-eye text-brand-500';
+    document.getElementById('monthly-toggle-label').textContent = 'Select All';
+  } else {
+    names.forEach(n => monthlyChartInstance.showSeries(n));
+    allSeriesVisible = true;
+    document.getElementById('monthly-toggle-icon').className   = 'fa-solid fa-eye-slash text-gray-400';
+    document.getElementById('monthly-toggle-label').textContent = 'Deselect All';
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    RESET FILTERS
 ════════════════════════════════════════════════════════════════ */
@@ -601,10 +853,14 @@ function resetFilters() {
 document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   initDateFilters();
-  await populateCategoryFilter();   // fetch category list for dropdown
-  await updateAll();                // initial data load
 
-  // Wire all filter inputs to trigger a refresh
+  // Load the full-DB trend chart first (independent of filters)
+  loadMonthlyChart();
+
+  await populateCategoryFilter();   // fetch category list for dropdown
+  await updateAll();                // initial filter-sensitive load
+
+  // Wire filter inputs — only stats / donut / table react to filter changes
   ['filter-from', 'filter-to', 'filter-category', 'filter-type']
     .forEach(id => document.getElementById(id).addEventListener('change', updateAll));
 });

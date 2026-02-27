@@ -1,6 +1,7 @@
 package com.ebalance.transactions.infrastructure.web
 
 import com.ebalance.transactions.application.GetCategoriesUseCase
+import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
 import com.ebalance.transactions.domain.TransactionFilter
@@ -17,14 +18,16 @@ import java.time.format.DateTimeParseException
  * Registers all transaction-related REST endpoints under the calling [Route].
  *
  * Endpoints:
- *   GET /transactions/summary  — aggregated stats + category breakdown (feeds Donut chart)
- *   GET /transactions          — paginated list of individual transactions (feeds table)
- *   GET /categories            — all categories (feeds filter dropdown)
+ *   GET /transactions/summary               — aggregated stats + category breakdown (Donut chart)
+ *   GET /transactions/monthly-by-category   — monthly trend per category (area/bar chart)
+ *   GET /transactions                       — paginated list of individual transactions (table)
+ *   GET /categories                         — all categories (filter dropdown)
  */
 fun Route.transactionRoutes(
     summaryUseCase: GetTransactionSummaryUseCase,
     transactionsUseCase: GetTransactionsUseCase,
-    categoriesUseCase: GetCategoriesUseCase
+    categoriesUseCase: GetCategoriesUseCase,
+    monthlySummaryUseCase: GetMonthlySummaryUseCase
 ) {
 
     // ── GET /api/v1/transactions/summary ─────────────────────────────────────
@@ -117,6 +120,61 @@ fun Route.transactionRoutes(
             )
         } catch (e: Exception) {
             call.application.environment.log.error("Transactions query failed", e)
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")
+            )
+        }
+    }
+
+    // ── GET /api/v1/transactions/monthly-by-category ─────────────────────────
+    //
+    // Returns transactions grouped by category AND calendar month.
+    // Both totalIncome and totalExpenses are always returned so the frontend
+    // can toggle the view without an extra round-trip.
+    // Missing months for a given category are zero-filled.
+    get("/transactions/monthly-by-category") {
+        try {
+            val filter = parseFilter(call.request)
+            val result = monthlySummaryUseCase.execute(filter)
+
+            call.respond(
+                HttpStatusCode.OK,
+                MonthlySummaryResponse(
+                    months = result.months,
+                    series = result.series.map { s ->
+                        MonthlyCategorySeriesDto(
+                            categoryId   = s.categoryId,
+                            categoryName = s.categoryName,
+                            monthlyData  = s.monthlyData.map { d ->
+                                MonthlyCategoryDataDto(
+                                    monthYear        = d.monthYear,
+                                    totalIncome      = d.totalIncome.toDouble(),
+                                    totalExpenses    = d.totalExpenses.toDouble(),
+                                    transactionCount = d.transactionCount
+                                )
+                            }
+                        )
+                    },
+                    filters = AppliedFiltersDto(
+                        startDate  = filter.startDate.toString(),
+                        endDate    = filter.endDate.toString(),
+                        categories = filter.categoryIds
+                    )
+                )
+            )
+        } catch (e: DateTimeParseException) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse("INVALID_DATE", "Date must be ISO-8601 (YYYY-MM-DD): ${e.parsedString}")
+            )
+        } catch (e: IllegalArgumentException) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
+            )
+        } catch (e: Exception) {
+            call.application.environment.log.error("Monthly summary query failed", e)
             call.respond(
                 HttpStatusCode.InternalServerError,
                 ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")

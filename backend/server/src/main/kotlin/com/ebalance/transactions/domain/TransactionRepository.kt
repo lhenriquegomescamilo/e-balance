@@ -8,4 +8,5 @@ interface TransactionRepository {
     fun getSummary(filter: TransactionFilter): TransactionSummaryResult
     fun getTransactions(filter: TransactionFilter): List<TransactionRow>
     fun getCategories(): List<CategoryEntry>
+    fun getMonthlySummary(filter: TransactionFilter): MonthlySummaryResult
 }

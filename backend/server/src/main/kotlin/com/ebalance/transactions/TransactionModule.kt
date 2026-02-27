@@ -13,10 +13,12 @@ import org.koin.dsl.module
  *   GetTransactionSummaryUseCase   → GetTransactionSummaryInteractor
  *   GetTransactionsUseCase         → GetTransactionsInteractor
  *   GetCategoriesUseCase           → GetCategoriesInteractor
+ *   GetMonthlySummaryUseCase       → GetMonthlySummaryInteractor
  */
 fun transactionModule(dbPath: String) = module {
     single<TransactionRepository>        { TransactionRepositoryImpl(dbPath) }
     single<GetTransactionSummaryUseCase> { GetTransactionSummaryInteractor(get()) }
     single<GetTransactionsUseCase>       { GetTransactionsInteractor(get()) }
     single<GetCategoriesUseCase>         { GetCategoriesInteractor(get()) }
+    single<GetMonthlySummaryUseCase>     { GetMonthlySummaryInteractor(get()) }
 }

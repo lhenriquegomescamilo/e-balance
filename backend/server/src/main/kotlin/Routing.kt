@@ -1,6 +1,7 @@
 package com.ebalance
 
 import com.ebalance.transactions.application.GetCategoriesUseCase
+import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
 import com.ebalance.transactions.infrastructure.web.transactionRoutes
@@ -15,6 +16,7 @@ fun Application.configureRouting() {
     val summaryUseCase: GetTransactionSummaryUseCase by inject()
     val transactionsUseCase: GetTransactionsUseCase by inject()
     val categoriesUseCase: GetCategoriesUseCase by inject()
+    val monthlySummaryUseCase: GetMonthlySummaryUseCase by inject()
 
     routing {
         // Redirect root to the dashboard
@@ -25,7 +27,7 @@ fun Application.configureRouting() {
 
         // REST API — all endpoints live under /api/v1
         route("/api/v1") {
-            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase)
+            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase)
         }
     }
 }
