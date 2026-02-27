@@ -4,6 +4,7 @@ import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.domain.TransactionFilter
 import com.ebalance.transactions.domain.TransactionType
 import com.ebalance.transactions.infrastructure.web.dto.*
@@ -18,16 +19,18 @@ import java.time.format.DateTimeParseException
  * Registers all transaction-related REST endpoints under the calling [Route].
  *
  * Endpoints:
- *   GET /transactions/summary               — aggregated stats + category breakdown (Donut chart)
- *   GET /transactions/monthly-by-category   — monthly trend per category (area/bar chart)
- *   GET /transactions                       — paginated list of individual transactions (table)
- *   GET /categories                         — all categories (filter dropdown)
+ *   GET   /transactions/summary               — aggregated stats + category breakdown (Donut chart)
+ *   GET   /transactions/monthly-by-category   — monthly trend per category (area/bar chart)
+ *   GET   /transactions                       — paginated list of individual transactions (table)
+ *   PATCH /transactions/{id}/category         — update the category of a single transaction
+ *   GET   /categories                         — all categories (filter dropdown)
  */
 fun Route.transactionRoutes(
     summaryUseCase: GetTransactionSummaryUseCase,
     transactionsUseCase: GetTransactionsUseCase,
     categoriesUseCase: GetCategoriesUseCase,
-    monthlySummaryUseCase: GetMonthlySummaryUseCase
+    monthlySummaryUseCase: GetMonthlySummaryUseCase,
+    updateCategoryUseCase: UpdateTransactionCategoryUseCase
 ) {
 
     // ── GET /api/v1/transactions/summary ─────────────────────────────────────
@@ -175,6 +178,46 @@ fun Route.transactionRoutes(
             )
         } catch (e: Exception) {
             call.application.environment.log.error("Monthly summary query failed", e)
+            call.respond(
+                HttpStatusCode.InternalServerError,
+                ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")
+            )
+        }
+    }
+
+    // ── PATCH /api/v1/transactions/{id}/category ─────────────────────────────
+    patch("/transactions/{id}/category") {
+        try {
+            val transactionId = call.parameters["id"]?.toLongOrNull()
+                ?: return@patch call.respond(
+                    HttpStatusCode.BadRequest,
+                    ErrorResponse("INVALID_PARAMETER", "Transaction ID must be a number")
+                )
+
+            val body = call.receive<UpdateCategoryRequest>()
+
+            updateCategoryUseCase.execute(transactionId, body.categoryId)
+
+            call.respond(
+                HttpStatusCode.OK,
+                UpdateCategoryResponse(
+                    transactionId = transactionId,
+                    categoryId    = body.categoryId,
+                    message       = "Category updated successfully"
+                )
+            )
+        } catch (e: NoSuchElementException) {
+            call.respond(
+                HttpStatusCode.NotFound,
+                ErrorResponse("NOT_FOUND", e.message ?: "Resource not found")
+            )
+        } catch (e: IllegalArgumentException) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
+            )
+        } catch (e: Exception) {
+            call.application.environment.log.error("Update category failed", e)
             call.respond(
                 HttpStatusCode.InternalServerError,
                 ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")

@@ -9,4 +9,6 @@ interface TransactionRepository {
     fun getTransactions(filter: TransactionFilter): List<TransactionRow>
     fun getCategories(): List<CategoryEntry>
     fun getMonthlySummary(filter: TransactionFilter): MonthlySummaryResult
+    /** @throws NoSuchElementException if the transaction or category does not exist. */
+    fun updateTransactionCategory(transactionId: Long, categoryId: Long)
 }

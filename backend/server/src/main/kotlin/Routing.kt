@@ -4,6 +4,7 @@ import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.infrastructure.web.transactionRoutes
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
@@ -17,6 +18,7 @@ fun Application.configureRouting() {
     val transactionsUseCase: GetTransactionsUseCase by inject()
     val categoriesUseCase: GetCategoriesUseCase by inject()
     val monthlySummaryUseCase: GetMonthlySummaryUseCase by inject()
+    val updateCategoryUseCase: UpdateTransactionCategoryUseCase by inject()
 
     routing {
         // Redirect root to the dashboard
@@ -27,7 +29,7 @@ fun Application.configureRouting() {
 
         // REST API — all endpoints live under /api/v1
         route("/api/v1") {
-            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase)
+            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase, updateCategoryUseCase)
         }
     }
 }

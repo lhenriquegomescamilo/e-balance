@@ -80,6 +80,18 @@ data class MonthlySummaryResponse(
     val filters: AppliedFiltersDto
 )
 
+// ── Update category endpoint (PATCH /api/v1/transactions/{id}/category) ──────
+
+@Serializable
+data class UpdateCategoryRequest(val categoryId: Long)
+
+@Serializable
+data class UpdateCategoryResponse(
+    val transactionId: Long,
+    val categoryId: Long,
+    val message: String
+)
+
 // ── Categories endpoint (/api/v1/categories) ─────────────────────────────────
 
 @Serializable

@@ -269,6 +269,34 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
         return MonthlySummaryResult(months = allMonths, series = series)
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // updateTransactionCategory — validates both IDs then runs UPDATE
+    // ─────────────────────────────────────────────────────────────────────────
+    override fun updateTransactionCategory(transactionId: Long, categoryId: Long) {
+        connection().use { conn ->
+            // Validate transaction exists
+            conn.prepareStatement("SELECT 1 FROM transactions WHERE id = ?").use { stmt ->
+                stmt.setLong(1, transactionId)
+                stmt.executeQuery().use { rs ->
+                    if (!rs.next()) throw NoSuchElementException("Transaction $transactionId not found")
+                }
+            }
+            // Validate category exists
+            conn.prepareStatement("SELECT 1 FROM category WHERE id = ?").use { stmt ->
+                stmt.setLong(1, categoryId)
+                stmt.executeQuery().use { rs ->
+                    if (!rs.next()) throw NoSuchElementException("Category $categoryId not found")
+                }
+            }
+            // Apply the update
+            conn.prepareStatement("UPDATE transactions SET category_id = ? WHERE id = ?").use { stmt ->
+                stmt.setLong(1, categoryId)
+                stmt.setLong(2, transactionId)
+                stmt.executeUpdate()
+            }
+        }
+    }
+
     // Builds "AND t.category_id IN (?,?,?)" or empty string
     private fun categoryInClause(ids: List<Long>): String =
         if (ids.isEmpty()) ""
