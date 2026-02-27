@@ -53,7 +53,10 @@ data class TransactionDto(
 @Serializable
 data class TransactionListResponse(
     val transactions: List<TransactionDto>,
-    val total: Int
+    val total: Int,
+    val page: Int,
+    val pageSize: Int,
+    val totalPages: Int
 )
 
 // ── Monthly-by-category endpoint (/api/v1/transactions/monthly-by-category) ──

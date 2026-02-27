@@ -594,7 +594,301 @@ private val deps: Dependencies by requireObject()
 
 ---
 
-**Version:** 1.0.0  
-**Last Updated:** 2026-02-22  
-**Kotlin Version:** 2.3.0  
+## Backend — Ktor REST API + Dashboard
+
+A Ktor-based REST API that serves a single-file HTML/JS dashboard. It reads from the same SQLite database that the CLI populates.
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| HTTP server | Ktor 3.4.0 (Netty engine) |
+| Dependency injection | Koin 4.1.2-Beta1 |
+| Serialization | kotlinx.serialization (JSON) |
+| Database | SQLite via plain JDBC (`sqlite-jdbc 3.45.3.0`) |
+| Frontend | Tailwind CSS CDN + Flowbite 2.3.0 + ApexCharts 3.48.0 |
+
+Run the server: `./gradlew :server:run` (listens on port 8080)
+Working directory when running: `backend/server/` → DB path must be `../../e-balance.db`
+
+---
+
+### Backend Structure
+
+```
+backend/server/src/main/kotlin/
+├── Application.kt                        # Ktor entry point
+├── Frameworks.kt                         # Koin install, DB path resolution, logging
+├── Routing.kt                            # Top-level route wiring, injects use cases via Koin
+├── Serialization.kt                      # ContentNegotiation + kotlinx.json install
+├── HTTP.kt                               # CORS plugin (anyHost)
+└── com/ebalance/transactions/
+    ├── TransactionModule.kt              # Koin module — binds all singletons
+    ├── domain/
+    │   ├── TransactionFilter.kt          # Filter value object (dates, categoryIds, type, page, pageSize)
+    │   ├── TransactionPage.kt            # Paginated result (rows, total, page, pageSize, totalPages)
+    │   ├── TransactionSummaryResult.kt   # Summary aggregate (totals + category breakdown)
+    │   ├── MonthlySummaryResult.kt       # Monthly trend (months[], series[])
+    │   ├── TransactionRow.kt             # Single transaction entity
+    │   ├── CategoryEntry.kt              # Category (id, name, enumName)
+    │   └── TransactionRepository.kt      # Port interface (getSummary, getTransactions, getCategories, getMonthlySummary, updateTransactionCategory)
+    ├── application/
+    │   ├── GetTransactionSummaryUseCase.kt
+    │   ├── GetTransactionsUseCase.kt     # Returns TransactionPage (paginated)
+    │   ├── GetCategoriesUseCase.kt
+    │   ├── GetMonthlySummaryUseCase.kt   # Overrides dates → full DB (1900–2100)
+    │   └── UpdateTransactionCategoryUseCase.kt
+    └── infrastructure/
+        ├── persistence/
+        │   └── TransactionRepositoryImpl.kt  # Plain JDBC, one connection per call
+        └── web/
+            ├── TransactionRoutes.kt          # All REST endpoints
+            └── dto/
+                ├── TransactionSummaryResponse.kt  # All DTOs (summary, list, monthly, categories, patch)
+                └── ErrorResponse.kt
+
+backend/server/src/main/resources/
+├── application.yaml                      # Port 8080, database.path: ../../e-balance.db
+└── static/
+    └── index.html                        # Single-file dashboard (Tailwind + Flowbite + ApexCharts)
+```
+
+---
+
+### Database Schema
+
+```sql
+-- Tables (created by Flyway in the CLI project)
+transactions(id INTEGER PRIMARY KEY, operated_at TEXT, description TEXT, value REAL, balance REAL, category_id INT)
+category(id INTEGER PRIMARY KEY, name TEXT, enum_name TEXT)
+
+-- Sign convention: value > 0 = INCOME, value < 0 = EXPENSE
+-- operated_at stored as ISO-8601 text: "YYYY-MM-DD"
+```
+
+---
+
+### API Endpoints
+
+Base path: `/api/v1`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/transactions/summary` | Aggregated totals + category breakdown |
+| `GET` | `/transactions` | Paginated list of rows |
+| `GET` | `/transactions/monthly-by-category` | Monthly trend (full DB, ignores date filter) |
+| `GET` | `/categories` | All categories for dropdowns |
+| `PATCH` | `/transactions/{id}/category` | Update a transaction's category |
+
+#### Common query parameters (parsed by `parseFilter`)
+
+| Param | Default | Notes |
+|-------|---------|-------|
+| `startDate` | 30 days ago | ISO-8601 `YYYY-MM-DD` |
+| `endDate` | today | ISO-8601 `YYYY-MM-DD` |
+| `categories` | all | comma-separated category IDs |
+| `type` | `ALL` | `INCOME` \| `EXPENSE` \| `ALL` |
+| `page` | `1` | for `/transactions` only |
+| `pageSize` | `20` | for `/transactions` only (max 200) |
+
+#### PATCH /transactions/{id}/category
+
+Request body:
+```json
+{ "categoryId": 5 }
+```
+Response (`200 OK`):
+```json
+{ "transactionId": 123, "categoryId": 5, "message": "Category updated successfully" }
+```
+Errors: `404` if transaction/category not found, `400` if invalid params.
+
+---
+
+### Architecture Patterns
+
+#### Use Case pattern (same as CLI side)
+
+```kotlin
+// 1. Interface in application layer
+interface GetTransactionsUseCase {
+    fun execute(filter: TransactionFilter): TransactionPage
+}
+
+// 2. Interactor (implementation) — delegates to repository
+class GetTransactionsInteractor(
+    private val repository: TransactionRepository
+) : GetTransactionsUseCase {
+    override fun execute(filter: TransactionFilter): TransactionPage =
+        repository.getTransactions(filter)
+}
+```
+
+#### Pagination pattern
+
+`TransactionFilter` carries `page` (1-based) and `pageSize`. `TransactionRepositoryImpl.getTransactions()` runs two queries on one connection:
+
+```kotlin
+// 1. COUNT(*) with same WHERE (no ORDER BY) — gives total
+// 2. SELECT ... ORDER BY ... LIMIT ? OFFSET ? — gives the page
+
+val totalPages = ceil(total / pageSize).coerceAtLeast(1)
+return TransactionPage(rows, total, page, pageSize, totalPages)
+```
+
+Response DTO:
+```json
+{
+  "transactions": [...],
+  "total": 143,
+  "page": 2,
+  "pageSize": 20,
+  "totalPages": 8
+}
+```
+
+#### Monthly summary — full DB, no date filter
+
+`GetMonthlySummaryInteractor` always overrides the caller's dates:
+
+```kotlin
+override fun execute(filter: TransactionFilter) =
+    repository.getMonthlySummary(filter.copy(
+        startDate = LocalDate.of(1900, 1, 1),
+        endDate   = LocalDate.of(2100, 12, 31)
+    ))
+```
+
+SQL groups by `strftime('%Y-%m', operated_at)` × `category_id`. Missing months for a category are zero-filled in Kotlin post-processing.
+
+#### Error responses
+
+All endpoints return `ErrorResponse(error: String, message: String)` on failure:
+
+| Condition | Status |
+|-----------|--------|
+| Bad date format | `400 INVALID_DATE` |
+| Invalid param | `400 INVALID_PARAMETER` |
+| Not found | `404 NOT_FOUND` |
+| Unexpected | `500 INTERNAL_ERROR` |
+
+---
+
+### Adding a New Endpoint (step by step)
+
+1. **Domain** — add method to `TransactionRepository.kt`:
+```kotlin
+fun getYearlySummary(filter: TransactionFilter): YearlySummaryResult
+```
+
+2. **Domain** — create result type in `domain/`:
+```kotlin
+data class YearlySummaryResult(val years: List<String>, ...)
+```
+
+3. **Application** — create use case in `application/`:
+```kotlin
+interface GetYearlySummaryUseCase { fun execute(filter: TransactionFilter): YearlySummaryResult }
+class GetYearlySummaryInteractor(private val repo: TransactionRepository) : GetYearlySummaryUseCase {
+    override fun execute(filter: TransactionFilter) = repo.getYearlySummary(filter)
+}
+```
+
+4. **Infrastructure / persistence** — implement in `TransactionRepositoryImpl.kt`
+
+5. **Infrastructure / web / dto** — add DTO class to `TransactionSummaryResponse.kt`:
+```kotlin
+@Serializable
+data class YearlySummaryResponse(val years: List<String>, ...)
+```
+
+6. **Infrastructure / web** — add route to `TransactionRoutes.kt`:
+```kotlin
+get("/transactions/yearly-by-category") {
+    try {
+        val filter = parseFilter(call.request)
+        val result = yearlySummaryUseCase.execute(filter)
+        call.respond(HttpStatusCode.OK, YearlySummaryResponse(...))
+    } catch (e: DateTimeParseException) { ... }
+}
+```
+Remember to add the new use case to the function signature of `transactionRoutes(...)`.
+
+7. **DI** — register in `TransactionModule.kt`:
+```kotlin
+single<GetYearlySummaryUseCase> { GetYearlySummaryInteractor(get()) }
+```
+
+8. **Routing** — inject and pass in `Routing.kt`:
+```kotlin
+val yearlySummaryUseCase: GetYearlySummaryUseCase by inject()
+// ...
+transactionRoutes(..., yearlySummaryUseCase)
+```
+
+---
+
+### Frontend Dashboard (`static/index.html`)
+
+Single-file SPA — no build step. Uses:
+- **Tailwind CSS CDN** with `darkMode: 'class'` (toggled on `<html>`, persisted in `localStorage`)
+- **Flowbite 2.3.0** for UI components
+- **ApexCharts 3.48.0** for charts
+- **Font Awesome** for icons
+
+Key JavaScript globals:
+
+| Variable | Purpose |
+|----------|---------|
+| `API_BASE` | `'/api/v1'` |
+| `currentPage` | current transactions page (reset to 1 on filter change) |
+| `PAGE_SIZE` | `20` |
+| `cachedCategories` | category list fetched once at boot, reused by the edit modal |
+| `lastSummaryData` | last summary response (reused by chart view toggle) |
+| `lastMonthlyData` | monthly chart data (fetched once, never re-fetched) |
+| `monthlyChartInstance` | ApexCharts instance (used for `showSeries`/`hideSeries`) |
+| `allSeriesVisible` | toggle state for "Deselect All / Select All" button |
+
+Key functions:
+
+| Function | Description |
+|----------|------------|
+| `updateAll()` | Fetches summary + paginated transactions, re-renders stats/donut/table/pagination |
+| `loadMonthlyChart()` | Fetches full-DB monthly data once at boot |
+| `buildParams()` | Builds filter query params (date, category, type) |
+| `buildTxParams()` | `buildParams()` + `page` + `pageSize` |
+| `renderTable(transactions)` | Renders rows; category badges are clickable → opens edit modal |
+| `renderPagination(txData)` | Renders page info + ellipsis-trimmed page buttons |
+| `openCategoryModal(txId, desc, catId)` | Opens the category-edit modal |
+| `saveCategoryChange()` | PATCH call with loading state; closes modal + calls `updateAll()` on success |
+
+Default date range: `2025-11-01` → today (hardcoded in `initDateFilters()`).
+
+---
+
+### Backend Build & Run
+
+```bash
+# Run the server (from backend/)
+./gradlew :server:run
+
+# Build fat JAR
+./gradlew :server:buildFatJar
+
+# Open dashboard
+open http://localhost:8080
+```
+
+The server logs the resolved DB path on startup:
+```
+Database path → /absolute/path/to/e-balance.db (exists: true)
+```
+
+If `exists: false`, check that `database.path` in `application.yaml` resolves correctly relative to `backend/server/`.
+
+---
+
+**Version:** 1.1.0
+**Last Updated:** 2026-02-27
+**Kotlin Version:** 2.3.0
 **JDK Version:** 17+

@@ -357,6 +357,28 @@
             No transactions match the selected filters.
           </div>
         </div>
+        <!-- Pagination bar -->
+        <div id="tx-pagination"
+             class="hidden flex items-center justify-between gap-2 px-5 py-3 border-t border-gray-200 dark:border-gray-700">
+          <!-- Info -->
+          <span id="tx-page-info" class="text-xs text-gray-400 dark:text-gray-500 shrink-0"></span>
+          <!-- Controls -->
+          <div class="flex items-center gap-1">
+            <button id="tx-page-prev"
+                    class="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <div id="tx-page-numbers" class="flex items-center gap-1"></div>
+            <button id="tx-page-next"
+                    class="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -508,6 +530,9 @@ async function populateCategoryFilter() {
 /* ═══════════════════════════════════════════════════════════════
    BUILD QUERY PARAMS FROM CURRENT FILTER STATE
 ════════════════════════════════════════════════════════════════ */
+let currentPage = 1;
+const PAGE_SIZE  = 20;
+
 function buildParams() {
   const from = document.getElementById('filter-from').value;
   const to   = document.getElementById('filter-to').value;
@@ -519,6 +544,13 @@ function buildParams() {
   if (to)   p.set('endDate', to);
   if (cat !== 'ALL') p.set('categories', cat);   // single category ID
   if (type !== 'ALL') p.set('type', type);
+  return p;
+}
+
+function buildTxParams() {
+  const p = buildParams();
+  p.set('page', currentPage);
+  p.set('pageSize', PAGE_SIZE);
   return p;
 }
 
@@ -640,7 +672,8 @@ function renderTable(transactions) {
   const empty = document.getElementById('tx-empty');
   const count = document.getElementById('tx-count');
 
-  count.textContent = `${transactions.length} ${transactions.length === 1 ? 'entry' : 'entries'}`;
+  // count label updated by renderPagination; keep minimal fallback here
+  count.textContent = `${transactions.length} shown`;
 
   if (transactions.length === 0) {
     tbody.innerHTML = '';
@@ -677,6 +710,77 @@ function renderTable(transactions) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   PAGINATION
+════════════════════════════════════════════════════════════════ */
+function renderPagination(txData) {
+  const { total, page, pageSize, totalPages } = txData;
+  const bar     = document.getElementById('tx-pagination');
+  const info    = document.getElementById('tx-page-info');
+  const nums    = document.getElementById('tx-page-numbers');
+  const prevBtn = document.getElementById('tx-page-prev');
+  const nextBtn = document.getElementById('tx-page-next');
+  const count   = document.getElementById('tx-count');
+
+  // Update entry counter in card header
+  count.textContent = `${total} ${total === 1 ? 'entry' : 'entries'}`;
+
+  if (totalPages <= 1) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+
+  // Info text: "1–20 of 143"
+  const from = (page - 1) * pageSize + 1;
+  const to   = Math.min(page * pageSize, total);
+  info.textContent = `${from}–${to} of ${total}`;
+
+  // Prev / Next
+  prevBtn.disabled = page <= 1;
+  nextBtn.disabled = page >= totalPages;
+
+  // Page number buttons — show at most 7 slots with ellipsis
+  nums.innerHTML = '';
+  const pages = pageRange(page, totalPages);
+  pages.forEach(p => {
+    if (p === '…') {
+      const span = document.createElement('span');
+      span.className = 'px-1 text-gray-400 dark:text-gray-500 text-xs select-none';
+      span.textContent = '…';
+      nums.appendChild(span);
+    } else {
+      const btn = document.createElement('button');
+      btn.textContent = p;
+      btn.className = p === page
+        ? 'inline-flex items-center justify-center h-7 min-w-[1.75rem] px-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold'
+        : 'inline-flex items-center justify-center h-7 min-w-[1.75rem] px-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs';
+      if (p !== page) btn.addEventListener('click', () => goToPage(p));
+      nums.appendChild(btn);
+    }
+  });
+}
+
+/** Returns an array of page numbers and '…' ellipsis markers. */
+function pageRange(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [];
+  const addPage = n => pages.push(n);
+  const addDots = () => pages.push('…');
+
+  addPage(1);
+  if (current > 3) addDots();
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) addPage(i);
+  if (current < total - 2) addDots();
+  addPage(total);
+  return pages;
+}
+
+function goToPage(p) {
+  currentPage = p;
+  updateAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
    LOADING / ERROR UI HELPERS
 ════════════════════════════════════════════════════════════════ */
 function setLoading(on) {
@@ -704,12 +808,13 @@ async function updateAll() {
   setLoading(true);
   hideError();
 
-  const params = buildParams();
+  const summaryParams = buildParams();
+  const txParams      = buildTxParams();
 
   try {
     const [summaryData, txData] = await Promise.all([
-      apiFetch(`${API_BASE}/transactions/summary?${params}`),
-      apiFetch(`${API_BASE}/transactions?${params}`)
+      apiFetch(`${API_BASE}/transactions/summary?${summaryParams}`),
+      apiFetch(`${API_BASE}/transactions?${txParams}`)
     ]);
 
     lastSummaryData = summaryData;
@@ -717,6 +822,7 @@ async function updateAll() {
     updateStats(summaryData.summary);
     renderChart(summaryData.categories);
     renderTable(txData.transactions);
+    renderPagination(txData);
   } catch (e) {
     showError(`Failed to load data: ${e.message}`);
     console.error(e);
@@ -976,6 +1082,7 @@ function resetFilters() {
   initDateFilters();
   document.getElementById('filter-category').value = 'ALL';
   document.getElementById('filter-type').value     = 'ALL';
+  currentPage = 1;
   updateAll();
 }
 
@@ -992,9 +1099,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   await populateCategoryFilter();   // fetch category list for dropdown
   await updateAll();                // initial filter-sensitive load
 
-  // Wire filter inputs — only stats / donut / table react to filter changes
+  // Wire filter inputs — reset to page 1 then reload on any filter change
   ['filter-from', 'filter-to', 'filter-category', 'filter-type']
-    .forEach(id => document.getElementById(id).addEventListener('change', updateAll));
+    .forEach(id => document.getElementById(id).addEventListener('change', () => {
+      currentPage = 1;
+      updateAll();
+    }));
+
+  // Pagination prev/next
+  document.getElementById('tx-page-prev').addEventListener('click', () => {
+    if (currentPage > 1) { currentPage--; updateAll(); }
+  });
+  document.getElementById('tx-page-next').addEventListener('click', () => {
+    currentPage++; updateAll();
+  });
 
   // Modal button wiring
   document.getElementById('modal-close-btn').addEventListener('click', closeCategoryModal);

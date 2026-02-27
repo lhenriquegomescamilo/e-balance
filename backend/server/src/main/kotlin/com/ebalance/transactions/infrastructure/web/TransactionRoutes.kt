@@ -91,12 +91,12 @@ fun Route.transactionRoutes(
     get("/transactions") {
         try {
             val filter = parseFilter(call.request)
-            val rows   = transactionsUseCase.execute(filter)
+            val page   = transactionsUseCase.execute(filter)
 
             call.respond(
                 HttpStatusCode.OK,
                 TransactionListResponse(
-                    transactions = rows.map { tx ->
+                    transactions = page.rows.map { tx ->
                         TransactionDto(
                             id           = tx.id,
                             operatedAt   = tx.operatedAt.toString(),
@@ -108,7 +108,10 @@ fun Route.transactionRoutes(
                             type         = if (tx.value.signum() >= 0) "INCOME" else "EXPENSE"
                         )
                     },
-                    total = rows.size
+                    total      = page.total,
+                    page       = page.page,
+                    pageSize   = page.pageSize,
+                    totalPages = page.totalPages
                 )
             )
         } catch (e: DateTimeParseException) {
@@ -253,6 +256,8 @@ fun Route.transactionRoutes(
 //   endDate    ISO-8601 date (default: today)
 //   categories comma-separated category IDs (default: all)
 //   type       INCOME | EXPENSE | ALL (default: ALL)
+//   page       1-based page number (default: 1)
+//   pageSize   rows per page 1-200 (default: 20)
 // ─────────────────────────────────────────────────────────────────────────────
 private fun parseFilter(request: ApplicationRequest): TransactionFilter {
     val today = LocalDate.now()
@@ -285,5 +290,8 @@ private fun parseFilter(request: ApplicationRequest): TransactionFilter {
         )
     }
 
-    return TransactionFilter(startDate, endDate, categoryIds, type)
+    val page = request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+    val pageSize = request.queryParameters["pageSize"]?.toIntOrNull()?.coerceIn(1, 200) ?: 20
+
+    return TransactionFilter(startDate, endDate, categoryIds, type, page, pageSize)
 }

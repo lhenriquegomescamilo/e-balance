@@ -6,7 +6,7 @@ package com.ebalance.transactions.domain
  */
 interface TransactionRepository {
     fun getSummary(filter: TransactionFilter): TransactionSummaryResult
-    fun getTransactions(filter: TransactionFilter): List<TransactionRow>
+    fun getTransactions(filter: TransactionFilter): TransactionPage
     fun getCategories(): List<CategoryEntry>
     fun getMonthlySummary(filter: TransactionFilter): MonthlySummaryResult
     /** @throws NoSuchElementException if the transaction or category does not exist. */

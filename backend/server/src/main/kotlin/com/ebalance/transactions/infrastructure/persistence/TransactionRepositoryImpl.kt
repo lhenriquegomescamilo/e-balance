@@ -58,19 +58,38 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // getTransactions — returns individual rows, newest first
+    // getTransactions — returns a page of individual rows, newest first.
+    // Two queries are issued inside a single connection: COUNT(*) then the
+    // paginated SELECT, avoiding an extra round-trip to the DB file.
     // ─────────────────────────────────────────────────────────────────────────
-    override fun getTransactions(filter: TransactionFilter): List<TransactionRow> {
-        val (sql, binder) = buildTransactionsQuery(filter)
+    override fun getTransactions(filter: TransactionFilter): TransactionPage {
+        val page     = filter.page.coerceAtLeast(1)
+        val pageSize = filter.pageSize.coerceIn(1, 200)
+        val offset   = (page - 1) * pageSize
+
+        val (countSql, binder) = buildTransactionsCountQuery(filter)
+        val (rowsSql,  _)      = buildTransactionsQuery(filter)
 
         connection().use { conn ->
-            conn.prepareStatement(sql).use { stmt ->
+            // 1. Total count (same WHERE clause, no ORDER/LIMIT)
+            val total = conn.prepareStatement(countSql).use { stmt ->
                 binder(stmt)
+                stmt.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 }
+            }
 
-                val rows = mutableListOf<TransactionRow>()
+            // 2. Paginated rows
+            val pagedSql = "$rowsSql LIMIT ? OFFSET ?"
+            val rows = conn.prepareStatement(pagedSql).use { stmt ->
+                binder(stmt)
+                // binder fills 2 + |categoryIds| params; LIMIT/OFFSET come after
+                var idx = 2 + filter.categoryIds.size + 1
+                stmt.setInt(idx++, pageSize)
+                stmt.setInt(idx,   offset)
+
+                val list = mutableListOf<TransactionRow>()
                 stmt.executeQuery().use { rs ->
                     while (rs.next()) {
-                        rows += TransactionRow(
+                        list += TransactionRow(
                             id           = rs.getLong("id"),
                             operatedAt   = LocalDate.parse(rs.getString("operated_at")),
                             description  = rs.getString("description"),
@@ -81,8 +100,11 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
                         )
                     }
                 }
-                return rows
+                list
             }
+
+            val totalPages = if (pageSize > 0) Math.ceil(total.toDouble() / pageSize).toInt().coerceAtLeast(1) else 1
+            return TransactionPage(rows = rows, total = total, page = page, pageSize = pageSize, totalPages = totalPages)
         }
     }
 
@@ -168,6 +190,33 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
               $categoryClause
               $typeClause
             ORDER BY t.operated_at DESC, t.id DESC
+        """.trimIndent()
+
+        val binder: (PreparedStatement) -> Unit = { stmt ->
+            var idx = 1
+            stmt.setString(idx++, filter.startDate.toString())
+            stmt.setString(idx++, filter.endDate.toString())
+            filter.categoryIds.forEach { stmt.setLong(idx++, it) }
+        }
+
+        return sql to binder
+    }
+
+    // Same WHERE as buildTransactionsQuery but selects COUNT(*) only (no ORDER BY)
+    private fun buildTransactionsCountQuery(
+        filter: TransactionFilter
+    ): Pair<String, (PreparedStatement) -> Unit> {
+
+        val categoryClause = categoryInClause(filter.categoryIds)
+        val typeClause     = typeWhereClause(filter.type)
+
+        val sql = """
+            SELECT COUNT(*)
+            FROM transactions t
+            WHERE t.operated_at >= ?
+              AND t.operated_at <= ?
+              $categoryClause
+              $typeClause
         """.trimIndent()
 
         val binder: (PreparedStatement) -> Unit = { stmt ->
