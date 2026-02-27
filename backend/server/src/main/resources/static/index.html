@@ -320,6 +320,107 @@
       </div>
     </div>
 
+    <!-- ── Category Bar Chart Card (Flowbite-style) ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 md:p-6">
+
+      <!-- Card header -->
+      <div class="flex justify-between pb-4 mb-4 border-b border-gray-100 dark:border-gray-800">
+        <div class="flex items-center gap-3">
+          <!-- Icon -->
+          <div class="w-12 h-12 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/40 flex-shrink-0 flex items-center justify-center rounded-full">
+            <svg class="w-6 h-6 text-red-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3Z"/>
+            </svg>
+          </div>
+          <!-- Totals -->
+          <div>
+            <h5 id="cat-bar-total" class="text-2xl font-semibold text-gray-900 dark:text-white">—</h5>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Expenses by category · filtered period</p>
+          </div>
+        </div>
+        <!-- % of income badge -->
+        <div class="flex-shrink-0">
+          <span id="cat-bar-badge"
+                class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full
+                       bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/40
+                       text-red-600 dark:text-red-400">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13 4 4m-4-4-4 4"/>
+            </svg>
+            —%
+          </span>
+        </div>
+      </div>
+
+      <!-- Stats pills row -->
+      <div class="grid grid-cols-2 mb-5">
+        <dl class="flex items-center gap-1.5">
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Top category:</dt>
+          <dd id="cat-bar-top" class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">—</dd>
+        </dl>
+        <dl class="flex items-center justify-end gap-1.5">
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Categories:</dt>
+          <dd id="cat-bar-count" class="text-sm font-semibold text-gray-800 dark:text-gray-200">—</dd>
+        </dl>
+      </div>
+
+      <!-- Horizontal bar chart -->
+      <div id="category-bar-chart"></div>
+
+      <!-- Footer -->
+      <div class="border-t border-gray-100 dark:border-gray-800 pt-4 mt-2 flex items-center justify-between">
+
+        <!-- Sort dropdown -->
+        <div class="relative">
+          <button id="catBarSortBtn"
+                  data-dropdown-toggle="catBarSortDropdown"
+                  data-dropdown-placement="bottom"
+                  class="inline-flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-gray-400
+                         hover:text-gray-800 dark:hover:text-white"
+                  type="button">
+            <span id="catBarSortLabel">Sort: Expenses ↓</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="catBarSortDropdown"
+               class="z-10 hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg w-44">
+            <ul class="p-1.5 text-sm text-gray-700 dark:text-gray-300 font-medium">
+              <li>
+                <a href="#" onclick="setCatBarSort('expenses'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-down-wide-short w-4 text-gray-400"></i> By Expenses
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="setCatBarSort('income'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-up-wide-short w-4 text-gray-400"></i> By Income
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="setCatBarSort('count'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-list-ol w-4 text-gray-400"></i> By Count
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Link to table -->
+        <a href="#" onclick="document.getElementById('tx-card').scrollIntoView({behavior:'smooth'}); return false;"
+           class="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 dark:text-indigo-400
+                  hover:text-indigo-700 dark:hover:text-indigo-300">
+          View Transactions
+          <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5m14 0-4 4m4-4-4-4"/>
+          </svg>
+        </a>
+      </div>
+    </div><!-- /category bar card -->
+
     <!-- ── Chart + Table ── -->
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
@@ -332,7 +433,7 @@
       </div>
 
       <!-- Transaction Table -->
-      <div class="lg:col-span-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div id="tx-card" class="lg:col-span-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Recent Transactions</h2>
           <span id="tx-count"
@@ -471,7 +572,8 @@ function toggleTheme() {
   html.classList.toggle('dark');
   localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
   updateThemeIcons();
-  // Re-render both charts so ApexCharts picks up new text/stroke colours
+  // Re-render all charts so ApexCharts picks up new text/stroke colours
+  if (lastSummaryData) renderCategoryBarChart(lastSummaryData.categories);
   if (lastSummaryData) renderChart(lastSummaryData.categories);
   if (lastMonthlyData) renderMonthlyChart(lastMonthlyData);
 }
@@ -582,6 +684,127 @@ function updateStats(summary) {
 
   document.getElementById('api-status').innerHTML =
     `<i class="fa-regular fa-calendar mr-1"></i>${summary.transactionCount} transactions`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORY BAR CHART  (Flowbite-style card)
+   Horizontal ApexCharts bar — driven by `categories` from /summary
+════════════════════════════════════════════════════════════════ */
+let catBarChartInstance = null;
+let catBarSort = 'expenses';       // 'expenses' | 'income' | 'count'
+let catBarLastCategories = [];     // cache for re-sorting without re-fetch
+
+const CAT_BAR_SORT_LABELS = {
+  expenses: 'Sort: Expenses ↓',
+  income:   'Sort: Income ↓',
+  count:    'Sort: Count ↓'
+};
+
+function setCatBarSort(mode) {
+  catBarSort = mode;
+  document.getElementById('catBarSortLabel').textContent = CAT_BAR_SORT_LABELS[mode];
+  if (catBarLastCategories.length) renderCategoryBarChart(catBarLastCategories);
+}
+
+function renderCategoryBarChart(categories) {
+  catBarLastCategories = categories;
+
+  const dark = html.classList.contains('dark');
+  const textColor = dark ? '#9ca3af' : '#6b7280';
+  const gridColor = dark ? '#1f2937' : '#f1f5f9';
+
+  // Filter to categories with any activity
+  const active = categories.filter(c => c.totalExpenses > 0 || c.totalIncome > 0 || c.transactionCount > 0);
+
+  // Sort by chosen mode
+  const metric = catBarSort === 'expenses' ? 'totalExpenses'
+               : catBarSort === 'income'   ? 'totalIncome'
+               : 'transactionCount';
+  const sorted = [...active].sort((a, b) => b[metric] - a[metric]);
+
+  // Update header stats
+  const totalExpenses = categories.reduce((s, c) => s + c.totalExpenses, 0);
+  const totalIncome   = categories.reduce((s, c) => s + c.totalIncome, 0);
+  const pct = totalIncome > 0 ? (totalExpenses / totalIncome * 100).toFixed(1) : '—';
+  const top = sorted[0]?.categoryName ?? '—';
+
+  document.getElementById('cat-bar-total').textContent = fmt(totalExpenses);
+  document.getElementById('cat-bar-badge').innerHTML =
+    `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13 4 4m-4-4-4 4"/>
+     </svg>${pct}% of income`;
+  document.getElementById('cat-bar-top').textContent   = top;
+  document.getElementById('cat-bar-count').textContent = `${active.length}`;
+
+  if (catBarChartInstance) { catBarChartInstance.destroy(); catBarChartInstance = null; }
+
+  if (sorted.length === 0) {
+    document.getElementById('category-bar-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-6">No data for selected filters.</p>';
+    return;
+  }
+
+  const labels  = sorted.map(c => c.categoryName);
+  const values  = sorted.map(c => parseFloat(c[metric].toFixed(2)));
+  const colors  = labels.map((_, i) => PALETTE[i % PALETTE.length]);
+  const chartH  = Math.max(180, sorted.length * 32);
+
+  catBarChartInstance = new ApexCharts(document.getElementById('category-bar-chart'), {
+    series: [{ name: CAT_BAR_SORT_LABELS[catBarSort].replace('Sort: ', '').replace(' ↓', ''), data: values }],
+    chart: {
+      type: 'bar',
+      height: chartH,
+      background: 'transparent',
+      toolbar: { show: false },
+      animations: { enabled: true, speed: 400 }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        borderRadius: 4,
+        distributed: true,
+        dataLabels: { position: 'bottom' }
+      }
+    },
+    dataLabels: {
+      enabled: true,
+      textAnchor: 'start',
+      offsetX: 6,
+      style: { fontSize: '11px', colors: [textColor] },
+      formatter: v => catBarSort === 'count' ? v : '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 })
+    },
+    xaxis: {
+      categories: labels,
+      labels: {
+        show: false
+      },
+      axisBorder: { show: false },
+      axisTicks:  { show: false }
+    },
+    yaxis: {
+      labels: {
+        style: { fontSize: '11px', colors: textColor },
+        maxWidth: 130
+      }
+    },
+    colors,
+    legend:  { show: false },
+    grid: {
+      borderColor: gridColor,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: false } },
+      padding: { left: 0, right: 16, top: 0, bottom: 0 }
+    },
+    tooltip: {
+      y: {
+        formatter: v => catBarSort === 'count'
+          ? `${v} transactions`
+          : '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 })
+      }
+    },
+    theme: { mode: dark ? 'dark' : 'light' }
+  });
+  catBarChartInstance.render();
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -820,6 +1043,7 @@ async function updateAll() {
     lastSummaryData = summaryData;
 
     updateStats(summaryData.summary);
+    renderCategoryBarChart(summaryData.categories);
     renderChart(summaryData.categories);
     renderTable(txData.transactions);
     renderPagination(txData);
