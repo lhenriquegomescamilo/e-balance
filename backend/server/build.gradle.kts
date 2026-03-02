@@ -32,4 +32,12 @@ dependencies {
     implementation(libs.sqlite.jdbc)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.kotest.runner.junit5)
+    testImplementation(libs.kotest.assertions.core)
+    testImplementation(libs.mockk)
+    testImplementation(libs.ktor.client.content.negotiation)
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
