@@ -1,19 +1,21 @@
 package com.ebalance.transactions.application
 
+import arrow.core.Either
 import com.ebalance.transactions.domain.MonthlySummaryResult
+import com.ebalance.transactions.domain.TransactionError
 import com.ebalance.transactions.domain.TransactionFilter
 import com.ebalance.transactions.domain.TransactionRepository
 import java.time.LocalDate
 
 /** Input port: transactions grouped by category × month for the trend chart. */
 interface GetMonthlySummaryUseCase {
-    fun execute(filter: TransactionFilter): MonthlySummaryResult
+    fun execute(filter: TransactionFilter): Either<TransactionError, MonthlySummaryResult>
 }
 
 class GetMonthlySummaryInteractor(
     private val repository: TransactionRepository
 ) : GetMonthlySummaryUseCase {
-    override fun execute(filter: TransactionFilter): MonthlySummaryResult =
+    override fun execute(filter: TransactionFilter): Either<TransactionError, MonthlySummaryResult> =
         // Date range is intentionally stripped — the monthly chart always covers
         // the entire database regardless of what the caller passes.
         repository.getMonthlySummary(

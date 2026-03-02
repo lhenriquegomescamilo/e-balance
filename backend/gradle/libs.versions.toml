@@ -31,6 +31,9 @@ sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
 ktor-server-cors = { module = "io.ktor:ktor-server-cors", version.ref = "ktor" }
 kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-assertions-arrow = { module = "io.kotest.extensions:kotest-assertions-arrow", version = "2.0.0" }
+arrow-core = { module = "io.arrow-kt:arrow-core", version = "2.0.1" }
+arrow-fx-stm = { module = "io.arrow-kt:arrow-fx-stm", version = "2.0.1" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 

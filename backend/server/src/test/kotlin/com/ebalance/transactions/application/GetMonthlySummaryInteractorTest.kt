@@ -1,9 +1,11 @@
 package com.ebalance.transactions.application
 
+import arrow.core.right
 import com.ebalance.transactions.domain.MonthlySummaryResult
 import com.ebalance.transactions.domain.TransactionFilter
 import com.ebalance.transactions.domain.TransactionRepository
 import com.ebalance.transactions.domain.TransactionType
+import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -22,7 +24,7 @@ class GetMonthlySummaryInteractorTest : DescribeSpec({
 
         it("always overrides startDate to 1900-01-01 regardless of the caller's filter") {
             val capturedFilter = slot<TransactionFilter>()
-            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult
+            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult.right()
 
             interactor.execute(
                 TransactionFilter(
@@ -36,7 +38,7 @@ class GetMonthlySummaryInteractorTest : DescribeSpec({
 
         it("always overrides endDate to 2100-12-31 regardless of the caller's filter") {
             val capturedFilter = slot<TransactionFilter>()
-            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult
+            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult.right()
 
             interactor.execute(
                 TransactionFilter(
@@ -50,7 +52,7 @@ class GetMonthlySummaryInteractorTest : DescribeSpec({
 
         it("preserves categoryIds from the caller's filter") {
             val capturedFilter = slot<TransactionFilter>()
-            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult
+            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult.right()
 
             interactor.execute(
                 TransactionFilter(
@@ -65,7 +67,7 @@ class GetMonthlySummaryInteractorTest : DescribeSpec({
 
         it("preserves the type field from the caller's filter") {
             val capturedFilter = slot<TransactionFilter>()
-            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult
+            every { repository.getMonthlySummary(capture(capturedFilter)) } returns emptyResult.right()
 
             interactor.execute(
                 TransactionFilter(
@@ -83,11 +85,11 @@ class GetMonthlySummaryInteractorTest : DescribeSpec({
                 months = listOf("2026-01", "2026-02"),
                 series = emptyList()
             )
-            every { repository.getMonthlySummary(any()) } returns expectedResult
+            every { repository.getMonthlySummary(any()) } returns expectedResult.right()
 
             val result = interactor.execute(
                 TransactionFilter(startDate = LocalDate.now(), endDate = LocalDate.now())
-            )
+            ).shouldBeRight()
 
             result shouldBe expectedResult
         }
