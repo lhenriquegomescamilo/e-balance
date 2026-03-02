@@ -21,6 +21,9 @@
   <!-- Flowbite CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" />
 
+  <!-- vanillajs-datepicker CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.3.4/dist/css/datepicker.min.css" />
+
   <!-- ApexCharts -->
   <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.48.0/dist/apexcharts.min.js"></script>
 
@@ -32,6 +35,62 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
+
+    /* ── vanillajs-datepicker dark mode overrides ─────────────────── */
+    .dark .datepicker-picker {
+      background-color: #1f2937;  /* gray-800 */
+      border-color: #374151;
+    }
+    .dark .datepicker-header .button {
+      color: #9ca3af;
+      background: transparent;
+    }
+    .dark .datepicker-header .button:hover,
+    .dark .datepicker-header .view-switch:hover {
+      background-color: #374151;
+      color: #f3f4f6;
+    }
+    .dark .datepicker-header .view-switch {
+      color: #f3f4f6;
+    }
+    .dark .days-of-week .dow {
+      color: #6b7280;
+    }
+    .dark .datepicker-cell {
+      color: #d1d5db;
+    }
+    .dark .datepicker-cell.prev-month,
+    .dark .datepicker-cell.next-month {
+      color: #4b5563;
+    }
+    .dark .datepicker-cell.disabled {
+      color: #374151;
+    }
+    .dark .datepicker-cell:not(.disabled):not(.selected):hover,
+    .dark .datepicker-cell.focused:not(.selected) {
+      background-color: #374151;
+      color: #f3f4f6;
+    }
+    .dark .datepicker-cell.today:not(.selected) {
+      background-color: rgba(99,102,241,.15);
+      color: #a5b4fc;
+    }
+    .dark .datepicker-cell.selected,
+    .dark .datepicker-cell.selected:hover {
+      background-color: #6366f1;
+      color: #ffffff;
+    }
+    .dark .datepicker-footer {
+      border-top-color: #374151;
+      background-color: #1f2937;
+    }
+    .dark .datepicker-footer .button {
+      color: #6366f1;
+      background: transparent;
+    }
+    .dark .datepicker-footer .button:hover {
+      background-color: #374151;
+    }
   </style>
 </head>
 
@@ -250,22 +309,57 @@
 
       <div class="flex items-center gap-2">
         <label class="text-xs text-gray-500 dark:text-gray-400">From</label>
-        <input type="date" id="filter-from"
-               class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
-                      text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        <input type="hidden" id="filter-from" />
+        <button id="btn-filter-from"
+                class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500
+                       flex items-center gap-2 cursor-pointer">
+          <i class="fa-regular fa-calendar text-brand-500"></i>
+          <span id="btn-filter-from-label">—</span>
+        </button>
       </div>
       <div class="flex items-center gap-2">
         <label class="text-xs text-gray-500 dark:text-gray-400">To</label>
-        <input type="date" id="filter-to"
-               class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
-                      text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        <input type="hidden" id="filter-to" />
+        <button id="btn-filter-to"
+                class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500
+                       flex items-center gap-2 cursor-pointer">
+          <i class="fa-regular fa-calendar text-brand-500"></i>
+          <span id="btn-filter-to-label">—</span>
+        </button>
       </div>
 
-      <select id="filter-category"
-              class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
-                     text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
-        <option value="ALL">All Categories</option>
-      </select>
+      <!-- Multi-select category filter -->
+      <div class="relative" id="category-multiselect-wrap">
+        <button id="btn-category-filter"
+                class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500
+                       flex items-center gap-2 min-w-[9rem] cursor-pointer">
+          <span id="category-filter-label">All Categories</span>
+          <i class="fa-solid fa-chevron-down text-xs text-gray-400 ml-auto"></i>
+        </button>
+        <div id="category-dropdown"
+             class="hidden absolute left-0 top-full mt-1 z-30 w-64
+                    bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                    rounded-xl shadow-lg overflow-hidden">
+          <div class="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Filter by category</span>
+            <button id="category-clear-btn"
+                    class="text-xs text-brand-500 hover:text-brand-600 font-medium">Clear</button>
+          </div>
+          <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600
+                        bg-slate-50 dark:bg-gray-700 px-2.5 py-1.5">
+              <i class="fa-solid fa-magnifying-glass text-xs text-gray-400"></i>
+              <input id="category-search" type="text" placeholder="Search…"
+                     class="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100
+                            placeholder-gray-400 outline-none" />
+            </div>
+          </div>
+          <div id="category-options" class="max-h-48 overflow-y-auto py-1"></div>
+        </div>
+      </div>
 
       <select id="filter-type"
               class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
@@ -541,8 +635,87 @@
   </div>
 </div>
 
+<!-- ── From-date picker modal ─────────────────────────────────────────── -->
+<div id="datepicker-from-modal"
+     class="fixed inset-0 z-50 hidden overflow-y-auto"
+     aria-modal="true" role="dialog">
+  <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" id="datepicker-from-backdrop"></div>
+  <div class="relative flex min-h-full items-center justify-center p-4">
+    <div class="relative w-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-800 dark:shadow-gray-900/60">
+      <!-- Header -->
+      <div class="flex items-center justify-between rounded-t-2xl border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+          <i class="fa-regular fa-calendar text-brand-500 mr-2"></i>From date
+        </h3>
+        <button id="datepicker-from-close"
+                class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-white">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Inline datepicker -->
+      <div class="p-4 flex justify-center">
+        <div id="datepicker-from-inline"></div>
+      </div>
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-3 rounded-b-2xl border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+        <button id="datepicker-from-cancel"
+                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+          Cancel
+        </button>
+        <button id="datepicker-from-confirm"
+                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── To-date picker modal ───────────────────────────────────────────── -->
+<div id="datepicker-to-modal"
+     class="fixed inset-0 z-50 hidden overflow-y-auto"
+     aria-modal="true" role="dialog">
+  <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" id="datepicker-to-backdrop"></div>
+  <div class="relative flex min-h-full items-center justify-center p-4">
+    <div class="relative w-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-800 dark:shadow-gray-900/60">
+      <!-- Header -->
+      <div class="flex items-center justify-between rounded-t-2xl border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+          <i class="fa-regular fa-calendar text-brand-500 mr-2"></i>To date
+        </h3>
+        <button id="datepicker-to-close"
+                class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-white">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Inline datepicker -->
+      <div class="p-4 flex justify-center">
+        <div id="datepicker-to-inline"></div>
+      </div>
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-3 rounded-b-2xl border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+        <button id="datepicker-to-cancel"
+                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+          Cancel
+        </button>
+        <button id="datepicker-to-confirm"
+                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Flowbite JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
+<!-- vanillajs-datepicker (provides the Datepicker class used for inline calendars) -->
+<script src="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.3.4/dist/js/datepicker.min.js"></script>
 
 <script>
 /* ═══════════════════════════════════════════════════════════════
@@ -599,10 +772,22 @@ function closeSidebar() {
 /* ═══════════════════════════════════════════════════════════════
    DATE FILTER DEFAULTS  (first day of current month → today)
 ════════════════════════════════════════════════════════════════ */
+function isoToDisplay(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function setDateFilter(id, iso) {
+  document.getElementById(id).value = iso;
+  const lbl = document.getElementById('btn-' + id + '-label');
+  if (lbl) lbl.textContent = isoToDisplay(iso);
+}
+
 function initDateFilters() {
   const now = new Date();
-  document.getElementById('filter-from').value = '2025-11-01';
-  document.getElementById('filter-to').value   = toIso(now);
+  setDateFilter('filter-from', '2025-11-01');
+  setDateFilter('filter-to',   toIso(now));
 }
 
 const toIso = d => d.toISOString().split('T')[0];
@@ -612,17 +797,45 @@ const toIso = d => d.toISOString().split('T')[0];
 ════════════════════════════════════════════════════════════════ */
 let cachedCategories = [];   // reused by the category-edit modal
 
+function updateCategoryLabel() {
+  const checked = document.querySelectorAll('#category-options input[type="checkbox"]:checked');
+  const lbl = document.getElementById('category-filter-label');
+  if (checked.length === 0) {
+    lbl.textContent = 'All Categories';
+  } else if (checked.length === 1) {
+    lbl.textContent = checked[0].dataset.name;
+  } else {
+    lbl.textContent = `${checked.length} categories`;
+  }
+}
+
 async function populateCategoryFilter() {
   try {
     const res  = await fetch(`${API_BASE}/categories`);
     const data = await res.json();
     cachedCategories = data.categories;
-    const sel  = document.getElementById('filter-category');
+    const container = document.getElementById('category-options');
     data.categories.forEach(cat => {
-      const opt      = document.createElement('option');
-      opt.value      = cat.id;      // numeric ID sent as query param
-      opt.textContent = cat.name;
-      sel.appendChild(opt);
+      const label = document.createElement('label');
+      label.className = 'flex items-center gap-2.5 px-3 py-1.5 cursor-pointer ' +
+                        'hover:bg-slate-50 dark:hover:bg-gray-700';
+      const cb = document.createElement('input');
+      cb.type  = 'checkbox';
+      cb.value = cat.id;
+      cb.dataset.name = cat.name;
+      cb.className = 'rounded border-gray-300 dark:border-gray-600 ' +
+                     'text-brand-500 focus:ring-brand-500 bg-white dark:bg-gray-700 cursor-pointer';
+      cb.addEventListener('change', () => {
+        updateCategoryLabel();
+        currentPage = 1;
+        updateAll();
+      });
+      const span = document.createElement('span');
+      span.className  = 'text-sm text-gray-700 dark:text-gray-300 select-none';
+      span.textContent = cat.name;
+      label.appendChild(cb);
+      label.appendChild(span);
+      container.appendChild(label);
     });
   } catch (e) {
     console.warn('Could not load categories:', e);
@@ -638,13 +851,16 @@ const PAGE_SIZE  = 20;
 function buildParams() {
   const from = document.getElementById('filter-from').value;
   const to   = document.getElementById('filter-to').value;
-  const cat  = document.getElementById('filter-category').value;
   const type = document.getElementById('filter-type').value;
+
+  const selectedCats = Array.from(
+    document.querySelectorAll('#category-options input[type="checkbox"]:checked')
+  ).map(cb => cb.value);
 
   const p = new URLSearchParams();
   if (from) p.set('startDate', from);
   if (to)   p.set('endDate', to);
-  if (cat !== 'ALL') p.set('categories', cat);   // single category ID
+  if (selectedCats.length > 0) p.set('categories', selectedCats.join(','));
   if (type !== 'ALL') p.set('type', type);
   return p;
 }
@@ -1304,8 +1520,10 @@ async function saveCategoryChange() {
 ════════════════════════════════════════════════════════════════ */
 function resetFilters() {
   initDateFilters();
-  document.getElementById('filter-category').value = 'ALL';
-  document.getElementById('filter-type').value     = 'ALL';
+  document.querySelectorAll('#category-options input[type="checkbox"]')
+    .forEach(cb => { cb.checked = false; });
+  updateCategoryLabel();
+  document.getElementById('filter-type').value = 'ALL';
   currentPage = 1;
   updateAll();
 }
@@ -1324,11 +1542,52 @@ document.addEventListener('DOMContentLoaded', async () => {
   await updateAll();                // initial filter-sensitive load
 
   // Wire filter inputs — reset to page 1 then reload on any filter change
-  ['filter-from', 'filter-to', 'filter-category', 'filter-type']
-    .forEach(id => document.getElementById(id).addEventListener('change', () => {
-      currentPage = 1;
-      updateAll();
-    }));
+  // (date pickers and category checkboxes call updateAll() directly)
+  document.getElementById('filter-type').addEventListener('change', () => {
+    currentPage = 1;
+    updateAll();
+  });
+
+  // ── Category multi-select dropdown ───────────────────────────────────
+  const catBtn      = document.getElementById('btn-category-filter');
+  const catDropdown = document.getElementById('category-dropdown');
+
+  const catSearch = document.getElementById('category-search');
+
+  function closeCategoryDropdown() {
+    catDropdown.classList.add('hidden');
+    catSearch.value = '';
+    // restore all rows that may have been hidden by search
+    document.querySelectorAll('#category-options label').forEach(l => l.classList.remove('hidden'));
+  }
+
+  catBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const opening = catDropdown.classList.contains('hidden');
+    catDropdown.classList.toggle('hidden');
+    if (opening) catSearch.focus();
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('category-multiselect-wrap').contains(e.target)) {
+      closeCategoryDropdown();
+    }
+  });
+
+  catSearch.addEventListener('input', () => {
+    const q = catSearch.value.trim().toLowerCase();
+    document.querySelectorAll('#category-options label').forEach(label => {
+      const name = label.querySelector('input').dataset.name.toLowerCase();
+      label.classList.toggle('hidden', q !== '' && !name.includes(q));
+    });
+  });
+  document.getElementById('category-clear-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('#category-options input[type="checkbox"]')
+      .forEach(cb => { cb.checked = false; });
+    updateCategoryLabel();
+    currentPage = 1;
+    updateAll();
+  });
 
   // Pagination prev/next
   document.getElementById('tx-page-prev').addEventListener('click', () => {
@@ -1343,6 +1602,90 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('modal-cancel-btn').addEventListener('click', closeCategoryModal);
   document.getElementById('modal-backdrop').addEventListener('click', closeCategoryModal);
   document.getElementById('modal-save-btn').addEventListener('click', saveCategoryChange);
+
+  // ── Date-picker modals ────────────────────────────────────────────────
+  // vanillajs-datepicker instances (lazy-initialized on first modal open)
+  let dpFrom = null;
+  let dpTo   = null;
+
+  // Timezone-safe ISO string from a local Date (avoids UTC day-shift)
+  function localIso(d) {
+    const y  = d.getFullYear();
+    const m  = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }
+
+  function closeDateModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+  }
+
+  function openDateModal(modalId, filterId, dpRef, dpSetter) {
+    document.getElementById(modalId).classList.remove('hidden');
+
+    // Lazy-init: Datepicker must be created after the container is visible
+    if (!dpRef.value) {
+      const el = document.getElementById(modalId.replace('-modal', '-inline'));
+      const current = document.getElementById(filterId).value;
+      dpRef.value = new Datepicker(el, {
+        format:          'yyyy-mm-dd',
+        autohide:        false,
+        todayHighlight:  true,
+        ...(current ? { defaultViewDate: current } : {}),
+      });
+      if (current) dpRef.value.setDate(current, { render: true });
+      el.addEventListener('changeDate', () => {
+        const picked = dpRef.value.getDate();
+        if (picked) dpSetter(localIso(picked));
+      });
+    }
+  }
+
+  let pendingFromDate = null;
+  let pendingToDate   = null;
+  const dpFromRef = { value: null };
+  const dpToRef   = { value: null };
+
+  // Open buttons
+  document.getElementById('btn-filter-from').addEventListener('click', () => {
+    pendingFromDate = null;
+    openDateModal('datepicker-from-modal', 'filter-from', dpFromRef, d => { pendingFromDate = d; });
+  });
+  document.getElementById('btn-filter-to').addEventListener('click', () => {
+    pendingToDate = null;
+    openDateModal('datepicker-to-modal', 'filter-to', dpToRef, d => { pendingToDate = d; });
+  });
+
+  // Confirm buttons
+  document.getElementById('datepicker-from-confirm').addEventListener('click', () => {
+    if (pendingFromDate) {
+      setDateFilter('filter-from', pendingFromDate);
+      currentPage = 1;
+      updateAll();
+    }
+    closeDateModal('datepicker-from-modal');
+  });
+  document.getElementById('datepicker-to-confirm').addEventListener('click', () => {
+    if (pendingToDate) {
+      setDateFilter('filter-to', pendingToDate);
+      currentPage = 1;
+      updateAll();
+    }
+    closeDateModal('datepicker-to-modal');
+  });
+
+  // Close buttons / backdrop / cancel
+  ['datepicker-from-close', 'datepicker-from-cancel', 'datepicker-from-backdrop']
+    .forEach(id => document.getElementById(id).addEventListener('click', () => closeDateModal('datepicker-from-modal')));
+  ['datepicker-to-close', 'datepicker-to-cancel', 'datepicker-to-backdrop']
+    .forEach(id => document.getElementById(id).addEventListener('click', () => closeDateModal('datepicker-to-modal')));
+
+  // ESC closes whichever date modal is open
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    closeDateModal('datepicker-from-modal');
+    closeDateModal('datepicker-to-modal');
+  });
 
   // Delegated click on category badges in the transaction table
   document.getElementById('tx-body').addEventListener('click', e => {

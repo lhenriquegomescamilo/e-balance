@@ -229,14 +229,30 @@ fun Route.transactionRoutes(
     }
 
     // ── GET /api/v1/categories ───────────────────────────────────────────────
+    // Optional query param: ids=1,2,3  — returns only the matching categories.
+    // Omitting ids (or ids=) returns all categories.
     get("/categories") {
         try {
-            val categories = categoriesUseCase.execute()
+            val ids = call.request.queryParameters["ids"]
+                ?.split(",")
+                ?.filter { it.isNotBlank() }
+                ?.map {
+                    it.trim().toLongOrNull()
+                        ?: throw IllegalArgumentException("Invalid category ID: '$it' — must be a number")
+                }
+                ?: emptyList()
+
+            val categories = categoriesUseCase.execute(ids)
             call.respond(
                 HttpStatusCode.OK,
                 CategoryListResponse(
                     categories = categories.map { CategoryDto(it.id, it.name, it.enumName) }
                 )
+            )
+        } catch (e: IllegalArgumentException) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
             )
         } catch (e: Exception) {
             call.application.environment.log.error("Categories query failed", e)
