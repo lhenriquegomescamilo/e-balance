@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>e-Balance Dashboard</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' } }
+        }
+      }
+    }
+  </script>
+
+  <!-- Flowbite CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" />
+
+  <!-- vanillajs-datepicker CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.3.4/dist/css/datepicker.min.css" />
+
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.48.0/dist/apexcharts.min.js"></script>
+
+  <!-- Font Awesome icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    *, *::before, *::after { transition: background-color 0.2s, border-color 0.2s, color 0.1s; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
+
+    /* ── vanillajs-datepicker dark mode overrides ─────────────────── */
+    .dark .datepicker-picker {
+      background-color: #1f2937;  /* gray-800 */
+      border-color: #374151;
+    }
+    .dark .datepicker-header .button {
+      color: #9ca3af;
+      background: transparent;
+    }
+    .dark .datepicker-header .button:hover,
+    .dark .datepicker-header .view-switch:hover {
+      background-color: #374151;
+      color: #f3f4f6;
+    }
+    .dark .datepicker-header .view-switch {
+      color: #f3f4f6;
+    }
+    .dark .days-of-week .dow {
+      color: #6b7280;
+    }
+    .dark .datepicker-cell {
+      color: #d1d5db;
+    }
+    .dark .datepicker-cell.prev-month,
+    .dark .datepicker-cell.next-month {
+      color: #4b5563;
+    }
+    .dark .datepicker-cell.disabled {
+      color: #374151;
+    }
+    .dark .datepicker-cell:not(.disabled):not(.selected):hover,
+    .dark .datepicker-cell.focused:not(.selected) {
+      background-color: #374151;
+      color: #f3f4f6;
+    }
+    .dark .datepicker-cell.today:not(.selected) {
+      background-color: rgba(99,102,241,.15);
+      color: #a5b4fc;
+    }
+    .dark .datepicker-cell.selected,
+    .dark .datepicker-cell.selected:hover {
+      background-color: #6366f1;
+      color: #ffffff;
+    }
+    .dark .datepicker-footer {
+      border-top-color: #374151;
+      background-color: #1f2937;
+    }
+    .dark .datepicker-footer .button {
+      color: #6366f1;
+      background: transparent;
+    }
+    .dark .datepicker-footer .button:hover {
+      background-color: #374151;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans antialiased">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════════════════════════ -->
+<aside id="sidebar"
+  class="fixed top-0 left-0 z-40 h-screen w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-sm
+         transform -translate-x-full md:translate-x-0 transition-transform duration-300">
+
+  <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+    <div class="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center shadow-lg">
+      <i class="fa-solid fa-scale-balanced text-white text-sm"></i>
+    </div>
+    <span class="text-lg font-bold tracking-tight">e-Balance</span>
+  </div>
+
+  <nav class="px-3 py-4 space-y-1">
+    <p class="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Main</p>
+
+    <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       bg-brand-500 text-white cursor-pointer">
+      <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+    </a>
+    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-receipt w-5 text-center"></i> Transactions
+    </a>
+    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-gear w-5 text-center"></i> Settings
+    </a>
+  </nav>
+
+  <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold">LC</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">L. Camilo</p>
+        <p class="text-xs text-gray-400 truncate">Admin</p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div id="sidebar-overlay" onclick="closeSidebar()"
+     class="fixed inset-0 z-30 bg-black/50 hidden md:hidden"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NAVBAR
+════════════════════════════════════════════════════════════════ -->
+<header class="fixed top-0 left-0 md:left-64 right-0 z-30 h-16 bg-white dark:bg-gray-900
+               border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-3 shadow-sm">
+
+  <button onclick="toggleSidebar()"
+          class="md:hidden p-2 rounded-lg text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+
+  <div class="flex-1 max-w-md">
+    <div class="relative">
+      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+      <input type="text" placeholder="Search transactions…"
+             class="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-600
+                    bg-slate-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                    placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+    </div>
+  </div>
+
+  <div class="flex items-center gap-2 ml-auto">
+    <button class="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800">
+      <i class="fa-solid fa-bell"></i>
+      <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+    </button>
+
+    <!-- Theme Toggle: sun = shown in dark mode, moon = shown in light mode -->
+    <button id="theme-toggle" onclick="toggleTheme()"
+            class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
+            title="Toggle light/dark mode">
+      <i id="icon-sun"  class="fa-solid fa-sun  hidden text-yellow-400"></i>
+      <i id="icon-moon" class="fa-solid fa-moon text-gray-500"></i>
+    </button>
+
+    <button id="user-menu-btn" data-dropdown-toggle="user-dropdown"
+            class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800">
+      <div class="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold">LC</div>
+      <span class="text-sm font-medium hidden sm:block">L. Camilo</span>
+      <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+    </button>
+    <div id="user-dropdown"
+         class="z-50 hidden bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700
+                rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 w-44">
+      <div class="px-4 py-3">
+        <p class="text-sm font-medium">L. Camilo</p>
+        <p class="text-xs text-gray-400 truncate">admin@ebalance.io</p>
+      </div>
+      <ul class="py-1 text-sm text-gray-700 dark:text-gray-200">
+        <li><a href="#" class="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-gray-700">Profile</a></li>
+        <li><a href="#" class="block px-4 py-2 hover:bg-slate-100 dark:hover:bg-gray-700">Settings</a></li>
+      </ul>
+      <div class="py-1">
+        <a href="#" class="block px-4 py-2 text-sm text-red-500 hover:bg-slate-100 dark:hover:bg-gray-700">Sign out</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════════════════════════════ -->
+<main class="pt-16 md:pl-64 min-h-screen">
+  <div class="p-4 md:p-6 space-y-6 max-w-7xl">
+
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div>
+        <h1 class="text-2xl font-bold">Financial Overview</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Track your income, expenses, and net balance</p>
+      </div>
+      <!-- API status badge -->
+      <span id="api-status"
+            class="text-xs bg-slate-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-3 py-1.5 rounded-full self-start sm:self-auto">
+        <i class="fa-regular fa-calendar mr-1"></i> Loading…
+      </span>
+    </div>
+
+    <!-- ── Error banner (hidden by default) ── -->
+    <div id="error-banner"
+         class="hidden flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-900/20
+                border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-sm">
+      <i class="fa-solid fa-circle-exclamation flex-shrink-0"></i>
+      <span id="error-message">Failed to load data.</span>
+    </div>
+
+    <!-- ── Monthly Trend Chart (full DB period, unaffected by filters) ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6">
+
+      <!-- Card header -->
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-5">
+
+        <!-- KPI pills -->
+        <div class="grid grid-cols-2 gap-x-8">
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">All-time Expenses</p>
+            <p id="monthly-total-expenses" class="text-2xl font-bold text-red-500">—</p>
+          </div>
+          <div>
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Top Category</p>
+            <p id="monthly-top-category" class="text-xl font-bold truncate max-w-[160px]">—</p>
+          </div>
+        </div>
+
+        <!-- View-type dropdown (Expenses / Income) -->
+        <div class="flex items-center gap-2 self-start">
+          <span class="text-xs text-gray-400 dark:text-gray-500">Show:</span>
+          <button id="monthly-view-btn"
+                  data-dropdown-toggle="monthly-view-dropdown"
+                  data-dropdown-placement="bottom-end"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg
+                         border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                         text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700
+                         focus:outline-none focus:ring-2 focus:ring-brand-500">
+            <span id="monthly-view-label">Expenses</span>
+            <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+          </button>
+
+          <div id="monthly-view-dropdown"
+               class="z-10 hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600
+                      rounded-xl shadow-lg w-36">
+            <ul class="p-1.5 text-sm font-medium text-gray-700 dark:text-gray-200">
+              <li>
+                <a href="#" onclick="setMonthlyView('EXPENSE'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-down text-red-400 text-xs w-4"></i> Expenses
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="setMonthlyView('INCOME'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-up text-green-400 text-xs w-4"></i> Income
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Area chart -->
+      <div id="monthly-chart"></div>
+
+      <!-- Footer -->
+      <div class="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 mt-5 pt-4">
+        <p class="text-xs text-gray-400 dark:text-gray-500">
+          <i class="fa-solid fa-database mr-1"></i>
+          Entire database · all categories · grouped by calendar month
+        </p>
+        <button id="monthly-toggle-all-btn" onclick="toggleAllSeries()"
+                class="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg
+                       border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700
+                       focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
+          <i id="monthly-toggle-icon" class="fa-solid fa-eye-slash text-gray-400"></i>
+          <span id="monthly-toggle-label">Deselect All</span>
+        </button>
+      </div>
+
+    </div><!-- /monthly trend card -->
+
+    <!-- ── Filters ── -->
+    <div class="flex flex-wrap gap-3 items-center p-4 bg-white dark:bg-gray-900 rounded-xl
+                border border-gray-200 dark:border-gray-700 shadow-sm">
+      <i class="fa-solid fa-sliders text-brand-500"></i>
+      <span class="text-sm font-medium text-gray-600 dark:text-gray-300">Filters:</span>
+
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 dark:text-gray-400">From</label>
+        <input type="hidden" id="filter-from" />
+        <button id="btn-filter-from"
+                class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500
+                       flex items-center gap-2 cursor-pointer">
+          <i class="fa-regular fa-calendar text-brand-500"></i>
+          <span id="btn-filter-from-label">—</span>
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 dark:text-gray-400">To</label>
+        <input type="hidden" id="filter-to" />
+        <button id="btn-filter-to"
+                class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500
+                       flex items-center gap-2 cursor-pointer">
+          <i class="fa-regular fa-calendar text-brand-500"></i>
+          <span id="btn-filter-to-label">—</span>
+        </button>
+      </div>
+
+      <!-- Multi-select category filter -->
+      <div class="relative" id="category-multiselect-wrap">
+        <button id="btn-category-filter"
+                class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                       text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500
+                       flex items-center gap-2 min-w-[9rem] cursor-pointer">
+          <span id="category-filter-label">All Categories</span>
+          <i class="fa-solid fa-chevron-down text-xs text-gray-400 ml-auto"></i>
+        </button>
+        <div id="category-dropdown"
+             class="hidden absolute left-0 top-full mt-1 z-30 w-64
+                    bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
+                    rounded-xl shadow-lg overflow-hidden">
+          <div class="flex items-center justify-between px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+            <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Filter by category</span>
+            <button id="category-clear-btn"
+                    class="text-xs text-brand-500 hover:text-brand-600 font-medium">Clear</button>
+          </div>
+          <div class="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
+            <div class="flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-600
+                        bg-slate-50 dark:bg-gray-700 px-2.5 py-1.5">
+              <i class="fa-solid fa-magnifying-glass text-xs text-gray-400"></i>
+              <input id="category-search" type="text" placeholder="Search…"
+                     class="flex-1 bg-transparent text-sm text-gray-900 dark:text-gray-100
+                            placeholder-gray-400 outline-none" />
+            </div>
+          </div>
+          <div id="category-options" class="max-h-48 overflow-y-auto py-1"></div>
+        </div>
+      </div>
+
+      <select id="filter-type"
+              class="text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-gray-800
+                     text-gray-900 dark:text-gray-100 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <option value="ALL">Income & Expenses</option>
+        <option value="INCOME">Income only</option>
+        <option value="EXPENSE">Expenses only</option>
+      </select>
+
+      <!-- Loading spinner (shown while fetching) -->
+      <i id="loading-spinner" class="fa-solid fa-circle-notch fa-spin text-brand-500 hidden"></i>
+
+      <button onclick="resetFilters()"
+              class="ml-auto text-xs text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1">
+        <i class="fa-solid fa-rotate-left"></i> Reset
+      </button>
+    </div>
+
+    <!-- ── Stats Cards ── -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Income</span>
+          <div class="w-9 h-9 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+            <i class="fa-solid fa-arrow-up text-green-500 text-sm"></i>
+          </div>
+        </div>
+        <p id="stat-income" class="text-2xl font-bold text-green-500">—</p>
+        <p class="text-xs text-gray-400 mt-1">Filtered period</p>
+      </div>
+
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Expenses</span>
+          <div class="w-9 h-9 rounded-lg bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
+            <i class="fa-solid fa-arrow-down text-red-500 text-sm"></i>
+          </div>
+        </div>
+        <p id="stat-expenses" class="text-2xl font-bold text-red-500">—</p>
+        <p class="text-xs text-gray-400 mt-1">Filtered period</p>
+      </div>
+
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Net Balance</span>
+          <div class="w-9 h-9 rounded-lg bg-brand-500/10 flex items-center justify-center">
+            <i class="fa-solid fa-scale-balanced text-brand-500 text-sm"></i>
+          </div>
+        </div>
+        <p id="stat-balance" class="text-2xl font-bold">—</p>
+        <p class="text-xs text-gray-400 mt-1">Income − Expenses</p>
+      </div>
+    </div>
+
+    <!-- ── Category Bar Chart Card (Flowbite-style) ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4 md:p-6">
+
+      <!-- Card header -->
+      <div class="flex justify-between pb-4 mb-4 border-b border-gray-100 dark:border-gray-800">
+        <div class="flex items-center gap-3">
+          <!-- Icon -->
+          <div class="w-12 h-12 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/40 flex-shrink-0 flex items-center justify-center rounded-full">
+            <svg class="w-6 h-6 text-red-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3Z"/>
+            </svg>
+          </div>
+          <!-- Totals -->
+          <div>
+            <h5 id="cat-bar-total" class="text-2xl font-semibold text-gray-900 dark:text-white">—</h5>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Expenses by category · filtered period</p>
+          </div>
+        </div>
+        <!-- % of income badge -->
+        <div class="flex-shrink-0">
+          <span id="cat-bar-badge"
+                class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full
+                       bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/40
+                       text-red-600 dark:text-red-400">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13 4 4m-4-4-4 4"/>
+            </svg>
+            —%
+          </span>
+        </div>
+      </div>
+
+      <!-- Stats pills row -->
+      <div class="grid grid-cols-2 mb-5">
+        <dl class="flex items-center gap-1.5">
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Top category:</dt>
+          <dd id="cat-bar-top" class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">—</dd>
+        </dl>
+        <dl class="flex items-center justify-end gap-1.5">
+          <dt class="text-sm text-gray-500 dark:text-gray-400">Categories:</dt>
+          <dd id="cat-bar-count" class="text-sm font-semibold text-gray-800 dark:text-gray-200">—</dd>
+        </dl>
+      </div>
+
+      <!-- Horizontal bar chart -->
+      <div id="category-bar-chart"></div>
+
+      <!-- Footer -->
+      <div class="border-t border-gray-100 dark:border-gray-800 pt-4 mt-2 flex items-center justify-between">
+
+        <!-- Sort dropdown -->
+        <div class="relative">
+          <button id="catBarSortBtn"
+                  data-dropdown-toggle="catBarSortDropdown"
+                  data-dropdown-placement="bottom"
+                  class="inline-flex items-center gap-1 text-sm font-medium text-gray-500 dark:text-gray-400
+                         hover:text-gray-800 dark:hover:text-white"
+                  type="button">
+            <span id="catBarSortLabel">Sort: Expenses ↓</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="catBarSortDropdown"
+               class="z-10 hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg w-44">
+            <ul class="p-1.5 text-sm text-gray-700 dark:text-gray-300 font-medium">
+              <li>
+                <a href="#" onclick="setCatBarSort('expenses'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-down-wide-short w-4 text-gray-400"></i> By Expenses
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="setCatBarSort('income'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-arrow-up-wide-short w-4 text-gray-400"></i> By Income
+                </a>
+              </li>
+              <li>
+                <a href="#" onclick="setCatBarSort('count'); return false;"
+                   class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">
+                  <i class="fa-solid fa-list-ol w-4 text-gray-400"></i> By Count
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Link to table -->
+        <a href="#" onclick="document.getElementById('tx-card').scrollIntoView({behavior:'smooth'}); return false;"
+           class="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 dark:text-indigo-400
+                  hover:text-indigo-700 dark:hover:text-indigo-300">
+          View Transactions
+          <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5m14 0-4 4m4-4-4-4"/>
+          </svg>
+        </a>
+      </div>
+    </div><!-- /category bar card -->
+
+    <!-- ── Chart + Table ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+      <!-- Donut Chart -->
+      <div class="lg:col-span-2 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Spending by Category</h2>
+        <p class="text-xs text-gray-400 mb-4">Expenses only · filtered period</p>
+        <div id="donut-chart" class="flex justify-center"></div>
+        <div id="chart-legend" class="mt-4 space-y-1.5"></div>
+      </div>
+
+      <!-- Transaction Table -->
+      <div id="tx-card" class="lg:col-span-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Recent Transactions</h2>
+          <span id="tx-count"
+                class="text-xs bg-slate-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
+            — entries
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="text-xs uppercase text-gray-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-800/50">
+              <tr>
+                <th class="px-5 py-3">Category</th>
+                <th class="px-5 py-3">Description</th>
+                <th class="px-5 py-3">Date</th>
+                <th class="px-5 py-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="tx-body" class="divide-y divide-gray-100 dark:divide-gray-800"></tbody>
+          </table>
+          <div id="tx-empty" class="hidden text-center py-10 text-gray-400 dark:text-gray-500 text-sm">
+            <i class="fa-solid fa-inbox text-3xl mb-2 block"></i>
+            No transactions match the selected filters.
+          </div>
+        </div>
+        <!-- Pagination bar -->
+        <div id="tx-pagination"
+             class="hidden flex items-center justify-between gap-2 px-5 py-3 border-t border-gray-200 dark:border-gray-700">
+          <!-- Info -->
+          <span id="tx-page-info" class="text-xs text-gray-400 dark:text-gray-500 shrink-0"></span>
+          <!-- Controls -->
+          <div class="flex items-center gap-1">
+            <button id="tx-page-prev"
+                    class="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <div id="tx-page-numbers" class="flex items-center gap-1"></div>
+            <button id="tx-page-next"
+                    class="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<!-- ── Category-edit modal ──────────────────────────────────────────────── -->
+<div id="edit-category-modal"
+     class="fixed inset-0 z-50 hidden overflow-y-auto"
+     aria-modal="true" role="dialog">
+  <!-- Backdrop -->
+  <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" id="modal-backdrop"></div>
+  <!-- Panel -->
+  <div class="relative flex min-h-full items-center justify-center p-4">
+    <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl dark:bg-gray-800 dark:shadow-gray-900/60">
+      <!-- Header -->
+      <div class="flex items-center justify-between rounded-t-2xl border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Edit Category</h3>
+        <button id="modal-close-btn" type="button"
+                class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-white">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Body -->
+      <div class="px-6 py-5 space-y-4">
+        <p class="text-sm text-gray-500 dark:text-gray-400">Transaction</p>
+        <p id="modal-tx-desc" class="truncate font-medium text-gray-900 dark:text-white"></p>
+        <div>
+          <label for="modal-category-select"
+                 class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            New Category
+          </label>
+          <select id="modal-category-select"
+                  class="block w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:border-indigo-400">
+          </select>
+        </div>
+        <!-- Error message -->
+        <p id="modal-error" class="hidden text-sm text-red-500 dark:text-red-400"></p>
+      </div>
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-3 rounded-b-2xl border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+        <button id="modal-cancel-btn" type="button"
+                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+          Cancel
+        </button>
+        <button id="modal-save-btn" type="button"
+                class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+          <svg id="modal-spinner" class="hidden h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── From-date picker modal ─────────────────────────────────────────── -->
+<div id="datepicker-from-modal"
+     class="fixed inset-0 z-50 hidden overflow-y-auto"
+     aria-modal="true" role="dialog">
+  <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" id="datepicker-from-backdrop"></div>
+  <div class="relative flex min-h-full items-center justify-center p-4">
+    <div class="relative w-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-800 dark:shadow-gray-900/60">
+      <!-- Header -->
+      <div class="flex items-center justify-between rounded-t-2xl border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+          <i class="fa-regular fa-calendar text-brand-500 mr-2"></i>From date
+        </h3>
+        <button id="datepicker-from-close"
+                class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-white">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Inline datepicker -->
+      <div class="p-4 flex justify-center">
+        <div id="datepicker-from-inline"></div>
+      </div>
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-3 rounded-b-2xl border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+        <button id="datepicker-from-cancel"
+                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+          Cancel
+        </button>
+        <button id="datepicker-from-confirm"
+                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── To-date picker modal ───────────────────────────────────────────── -->
+<div id="datepicker-to-modal"
+     class="fixed inset-0 z-50 hidden overflow-y-auto"
+     aria-modal="true" role="dialog">
+  <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" id="datepicker-to-backdrop"></div>
+  <div class="relative flex min-h-full items-center justify-center p-4">
+    <div class="relative w-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-800 dark:shadow-gray-900/60">
+      <!-- Header -->
+      <div class="flex items-center justify-between rounded-t-2xl border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+          <i class="fa-regular fa-calendar text-brand-500 mr-2"></i>To date
+        </h3>
+        <button id="datepicker-to-close"
+                class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-white">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Inline datepicker -->
+      <div class="p-4 flex justify-center">
+        <div id="datepicker-to-inline"></div>
+      </div>
+      <!-- Footer -->
+      <div class="flex items-center justify-end gap-3 rounded-b-2xl border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+        <button id="datepicker-to-cancel"
+                class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+          Cancel
+        </button>
+        <button id="datepicker-to-confirm"
+                class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Flowbite JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
+<!-- vanillajs-datepicker (provides the Datepicker class used for inline calendars) -->
+<script src="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.3.4/dist/js/datepicker.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════════════════════ */
+const API_BASE = '/api/v1';
+
+const PALETTE = [
+  '#6366f1','#06b6d4','#f59e0b','#10b981','#ef4444',
+  '#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6',
+  '#84cc16','#e11d48','#0ea5e9','#a78bfa','#34d399'
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME TOGGLE
+════════════════════════════════════════════════════════════════ */
+const html = document.documentElement;
+
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && prefersDark)) html.classList.add('dark');
+  updateThemeIcons();
+}
+
+function toggleTheme() {
+  html.classList.toggle('dark');
+  localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeIcons();
+  // Re-render all charts so ApexCharts picks up new text/stroke colours
+  if (lastSummaryData) renderCategoryBarChart(lastSummaryData.categories);
+  if (lastSummaryData) renderChart(lastSummaryData.categories);
+  if (lastMonthlyData) renderMonthlyChart(lastMonthlyData);
+}
+
+function updateThemeIcons() {
+  const dark = html.classList.contains('dark');
+  document.getElementById('icon-sun').classList.toggle('hidden', !dark);
+  document.getElementById('icon-moon').classList.toggle('hidden', dark);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR (mobile)
+════════════════════════════════════════════════════════════════ */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DATE FILTER DEFAULTS  (first day of current month → today)
+════════════════════════════════════════════════════════════════ */
+function isoToDisplay(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function setDateFilter(id, iso) {
+  document.getElementById(id).value = iso;
+  const lbl = document.getElementById('btn-' + id + '-label');
+  if (lbl) lbl.textContent = isoToDisplay(iso);
+}
+
+function initDateFilters() {
+  const now = new Date();
+  setDateFilter('filter-from', '2025-11-01');
+  setDateFilter('filter-to',   toIso(now));
+}
+
+const toIso = d => d.toISOString().split('T')[0];
+
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORY DROPDOWN  — populated from GET /api/v1/categories
+════════════════════════════════════════════════════════════════ */
+let cachedCategories = [];   // reused by the category-edit modal
+
+function updateCategoryLabel() {
+  const checked = document.querySelectorAll('#category-options input[type="checkbox"]:checked');
+  const lbl = document.getElementById('category-filter-label');
+  if (checked.length === 0) {
+    lbl.textContent = 'All Categories';
+  } else if (checked.length === 1) {
+    lbl.textContent = checked[0].dataset.name;
+  } else {
+    lbl.textContent = `${checked.length} categories`;
+  }
+}
+
+async function populateCategoryFilter() {
+  try {
+    const res  = await fetch(`${API_BASE}/categories`);
+    const data = await res.json();
+    cachedCategories = data.categories;
+    const container = document.getElementById('category-options');
+    data.categories.forEach(cat => {
+      const label = document.createElement('label');
+      label.className = 'flex items-center gap-2.5 px-3 py-1.5 cursor-pointer ' +
+                        'hover:bg-slate-50 dark:hover:bg-gray-700';
+      const cb = document.createElement('input');
+      cb.type  = 'checkbox';
+      cb.value = cat.id;
+      cb.dataset.name = cat.name;
+      cb.className = 'rounded border-gray-300 dark:border-gray-600 ' +
+                     'text-brand-500 focus:ring-brand-500 bg-white dark:bg-gray-700 cursor-pointer';
+      cb.addEventListener('change', () => {
+        updateCategoryLabel();
+        currentPage = 1;
+        updateAll();
+      });
+      const span = document.createElement('span');
+      span.className  = 'text-sm text-gray-700 dark:text-gray-300 select-none';
+      span.textContent = cat.name;
+      label.appendChild(cb);
+      label.appendChild(span);
+      container.appendChild(label);
+    });
+  } catch (e) {
+    console.warn('Could not load categories:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BUILD QUERY PARAMS FROM CURRENT FILTER STATE
+════════════════════════════════════════════════════════════════ */
+let currentPage = 1;
+const PAGE_SIZE  = 20;
+
+function buildParams() {
+  const from = document.getElementById('filter-from').value;
+  const to   = document.getElementById('filter-to').value;
+  const type = document.getElementById('filter-type').value;
+
+  const selectedCats = Array.from(
+    document.querySelectorAll('#category-options input[type="checkbox"]:checked')
+  ).map(cb => cb.value);
+
+  const p = new URLSearchParams();
+  if (from) p.set('startDate', from);
+  if (to)   p.set('endDate', to);
+  if (selectedCats.length > 0) p.set('categories', selectedCats.join(','));
+  if (type !== 'ALL') p.set('type', type);
+  return p;
+}
+
+function buildTxParams() {
+  const p = buildParams();
+  p.set('page', currentPage);
+  p.set('pageSize', PAGE_SIZE);
+  return p;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   API FETCH HELPERS
+════════════════════════════════════════════════════════════════ */
+async function apiFetch(path, options = {}) {
+  const res = await fetch(path, options);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STATS CARDS
+════════════════════════════════════════════════════════════════ */
+// Formats an absolute value as "€ 1.234,56"
+const fmt = n => '€ ' + Math.abs(n).toLocaleString('pt-PT', { minimumFractionDigits: 2 });
+
+function updateStats(summary) {
+  document.getElementById('stat-income').textContent   = fmt(summary.totalIncome);
+  document.getElementById('stat-expenses').textContent = fmt(summary.totalExpenses);
+
+  const balEl = document.getElementById('stat-balance');
+  balEl.textContent = (summary.netBalance < 0 ? '- ' : '') + fmt(summary.netBalance);
+  balEl.className   = 'text-2xl font-bold ' + (summary.netBalance >= 0 ? 'text-green-500' : 'text-red-500');
+
+  document.getElementById('api-status').innerHTML =
+    `<i class="fa-regular fa-calendar mr-1"></i>${summary.transactionCount} transactions`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORY BAR CHART  (Flowbite-style card)
+   Horizontal ApexCharts bar — driven by `categories` from /summary
+════════════════════════════════════════════════════════════════ */
+let catBarChartInstance = null;
+let catBarSort = 'expenses';       // 'expenses' | 'income' | 'count'
+let catBarLastCategories = [];     // cache for re-sorting without re-fetch
+
+const CAT_BAR_SORT_LABELS = {
+  expenses: 'Sort: Expenses ↓',
+  income:   'Sort: Income ↓',
+  count:    'Sort: Count ↓'
+};
+
+function setCatBarSort(mode) {
+  catBarSort = mode;
+  document.getElementById('catBarSortLabel').textContent = CAT_BAR_SORT_LABELS[mode];
+  if (catBarLastCategories.length) renderCategoryBarChart(catBarLastCategories);
+}
+
+function renderCategoryBarChart(categories) {
+  catBarLastCategories = categories;
+
+  const dark = html.classList.contains('dark');
+  const textColor = dark ? '#9ca3af' : '#6b7280';
+  const gridColor = dark ? '#1f2937' : '#f1f5f9';
+
+  // Filter to categories with any activity
+  const active = categories.filter(c => c.totalExpenses > 0 || c.totalIncome > 0 || c.transactionCount > 0);
+
+  // Sort by chosen mode
+  const metric = catBarSort === 'expenses' ? 'totalExpenses'
+               : catBarSort === 'income'   ? 'totalIncome'
+               : 'transactionCount';
+  const sorted = [...active].sort((a, b) => b[metric] - a[metric]);
+
+  // Update header stats
+  const totalExpenses = categories.reduce((s, c) => s + c.totalExpenses, 0);
+  const totalIncome   = categories.reduce((s, c) => s + c.totalIncome, 0);
+  const pct = totalIncome > 0 ? (totalExpenses / totalIncome * 100).toFixed(1) : '—';
+  const top = sorted[0]?.categoryName ?? '—';
+
+  document.getElementById('cat-bar-total').textContent = fmt(totalExpenses);
+  document.getElementById('cat-bar-badge').innerHTML =
+    `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v13m0-13 4 4m-4-4-4 4"/>
+     </svg>${pct}% of income`;
+  document.getElementById('cat-bar-top').textContent   = top;
+  document.getElementById('cat-bar-count').textContent = `${active.length}`;
+
+  if (catBarChartInstance) { catBarChartInstance.destroy(); catBarChartInstance = null; }
+
+  if (sorted.length === 0) {
+    document.getElementById('category-bar-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-6">No data for selected filters.</p>';
+    return;
+  }
+
+  const labels  = sorted.map(c => c.categoryName);
+  const values  = sorted.map(c => parseFloat(c[metric].toFixed(2)));
+  const colors  = labels.map((_, i) => PALETTE[i % PALETTE.length]);
+  const chartH  = Math.max(180, sorted.length * 32);
+
+  catBarChartInstance = new ApexCharts(document.getElementById('category-bar-chart'), {
+    series: [{ name: CAT_BAR_SORT_LABELS[catBarSort].replace('Sort: ', '').replace(' ↓', ''), data: values }],
+    chart: {
+      type: 'bar',
+      height: chartH,
+      background: 'transparent',
+      toolbar: { show: false },
+      animations: { enabled: true, speed: 400 }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: true,
+        borderRadius: 4,
+        distributed: true,
+        dataLabels: { position: 'bottom' }
+      }
+    },
+    dataLabels: {
+      enabled: true,
+      textAnchor: 'start',
+      offsetX: 6,
+      style: { fontSize: '11px', colors: [textColor] },
+      formatter: v => catBarSort === 'count' ? v : '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 })
+    },
+    xaxis: {
+      categories: labels,
+      labels: {
+        show: false
+      },
+      axisBorder: { show: false },
+      axisTicks:  { show: false }
+    },
+    yaxis: {
+      labels: {
+        style: { fontSize: '11px', colors: textColor },
+        maxWidth: 130
+      }
+    },
+    colors,
+    legend:  { show: false },
+    grid: {
+      borderColor: gridColor,
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: false } },
+      padding: { left: 0, right: 16, top: 0, bottom: 0 }
+    },
+    tooltip: {
+      y: {
+        formatter: v => catBarSort === 'count'
+          ? `${v} transactions`
+          : '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 })
+      }
+    },
+    theme: { mode: dark ? 'dark' : 'light' }
+  });
+  catBarChartInstance.render();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DONUT CHART  (ApexCharts)
+   Driven by the `categories` array from /summary
+════════════════════════════════════════════════════════════════ */
+let chartInstance = null;
+
+function renderChart(categories) {
+  // Keep only categories that actually have expenses
+  const expenseCats = categories.filter(c => c.totalExpenses > 0);
+  const dark        = html.classList.contains('dark');
+
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+  if (expenseCats.length === 0) {
+    document.getElementById('donut-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-8">No expense data</p>';
+    document.getElementById('chart-legend').innerHTML = '';
+    return;
+  }
+
+  const labels = expenseCats.map(c => c.categoryName);
+  const series = expenseCats.map(c => parseFloat(c.totalExpenses.toFixed(2)));
+  const colors = labels.map((_, i) => PALETTE[i % PALETTE.length]);
+
+  chartInstance = new ApexCharts(document.getElementById('donut-chart'), {
+    series,
+    chart:  { type: 'donut', height: 260, background: 'transparent', toolbar: { show: false } },
+    labels,
+    colors,
+    legend: { show: false },
+    dataLabels: { enabled: false },
+    stroke: { width: 2, colors: [dark ? '#111827' : '#f8fafc'] },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '68%',
+          labels: {
+            show: true,
+            total: {
+              show: true, label: 'Total',
+              color: dark ? '#e5e7eb' : '#374151',
+              formatter: w => '€ ' + w.globals.seriesTotals
+                .reduce((a, b) => a + b, 0)
+                .toLocaleString('pt-PT', { minimumFractionDigits: 2 })
+            },
+            value: {
+              color: dark ? '#e5e7eb' : '#374151',
+              formatter: v => '€ ' + parseFloat(v).toLocaleString('pt-PT', { minimumFractionDigits: 2 })
+            }
+          }
+        }
+      }
+    },
+    tooltip: { y: { formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) } },
+    theme:  { mode: dark ? 'dark' : 'light' }
+  });
+  chartInstance.render();
+
+  // Custom legend with server-calculated percentages
+  document.getElementById('chart-legend').innerHTML = expenseCats.map((cat, i) => `
+    <div class="flex items-center justify-between gap-2 text-xs">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${colors[i]}"></span>
+        <span class="truncate text-gray-600 dark:text-gray-400">${cat.categoryName}</span>
+      </div>
+      <span class="font-medium text-gray-700 dark:text-gray-300 flex-shrink-0">
+        ${cat.percentageOfExpenses.toFixed(1)}%
+      </span>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TRANSACTION TABLE
+   Driven by the `transactions` array from /transactions
+════════════════════════════════════════════════════════════════ */
+const catColors = {};
+function getCatColor(name) {
+  if (!catColors[name]) {
+    catColors[name] = PALETTE[Object.keys(catColors).length % PALETTE.length];
+  }
+  return catColors[name];
+}
+
+function renderTable(transactions) {
+  const tbody = document.getElementById('tx-body');
+  const empty = document.getElementById('tx-empty');
+  const count = document.getElementById('tx-count');
+
+  // count label updated by renderPagination; keep minimal fallback here
+  count.textContent = `${transactions.length} shown`;
+
+  if (transactions.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = transactions.map(tx => {
+    const isIncome  = tx.type === 'INCOME';
+    const amtClass  = isIncome ? 'text-green-500 font-semibold' : 'text-red-500 font-semibold';
+    const amtStr    = (isIncome ? '+ ' : '- ') + fmt(tx.value);
+    const color     = getCatColor(tx.categoryName);
+    const dateStr   = new Date(tx.operatedAt + 'T00:00:00').toLocaleDateString('pt-PT');
+
+    return `
+      <tr class="hover:bg-slate-50 dark:hover:bg-gray-800/50 transition-colors">
+        <td class="px-5 py-3">
+          <span class="category-badge inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                style="background:${color}22; color:${color}; border:1px solid ${color}44"
+                data-tx-id="${tx.id}"
+                data-tx-desc="${tx.description.replace(/"/g, '&quot;')}"
+                data-category-id="${tx.categoryId}"
+                title="Click to change category">
+            <svg class="h-3 w-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 019 16H7v-2a2 2 0 01.586-1.414z"/></svg>
+            ${tx.categoryName}
+          </span>
+        </td>
+        <td class="px-5 py-3 text-gray-600 dark:text-gray-400 max-w-[200px] truncate">${tx.description}</td>
+        <td class="px-5 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">${dateStr}</td>
+        <td class="px-5 py-3 text-right whitespace-nowrap ${amtClass}">${amtStr}</td>
+      </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PAGINATION
+════════════════════════════════════════════════════════════════ */
+function renderPagination(txData) {
+  const { total, page, pageSize, totalPages } = txData;
+  const bar     = document.getElementById('tx-pagination');
+  const info    = document.getElementById('tx-page-info');
+  const nums    = document.getElementById('tx-page-numbers');
+  const prevBtn = document.getElementById('tx-page-prev');
+  const nextBtn = document.getElementById('tx-page-next');
+  const count   = document.getElementById('tx-count');
+
+  // Update entry counter in card header
+  count.textContent = `${total} ${total === 1 ? 'entry' : 'entries'}`;
+
+  if (totalPages <= 1) {
+    bar.classList.add('hidden');
+    return;
+  }
+  bar.classList.remove('hidden');
+
+  // Info text: "1–20 of 143"
+  const from = (page - 1) * pageSize + 1;
+  const to   = Math.min(page * pageSize, total);
+  info.textContent = `${from}–${to} of ${total}`;
+
+  // Prev / Next
+  prevBtn.disabled = page <= 1;
+  nextBtn.disabled = page >= totalPages;
+
+  // Page number buttons — show at most 7 slots with ellipsis
+  nums.innerHTML = '';
+  const pages = pageRange(page, totalPages);
+  pages.forEach(p => {
+    if (p === '…') {
+      const span = document.createElement('span');
+      span.className = 'px-1 text-gray-400 dark:text-gray-500 text-xs select-none';
+      span.textContent = '…';
+      nums.appendChild(span);
+    } else {
+      const btn = document.createElement('button');
+      btn.textContent = p;
+      btn.className = p === page
+        ? 'inline-flex items-center justify-center h-7 min-w-[1.75rem] px-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold'
+        : 'inline-flex items-center justify-center h-7 min-w-[1.75rem] px-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs';
+      if (p !== page) btn.addEventListener('click', () => goToPage(p));
+      nums.appendChild(btn);
+    }
+  });
+}
+
+/** Returns an array of page numbers and '…' ellipsis markers. */
+function pageRange(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [];
+  const addPage = n => pages.push(n);
+  const addDots = () => pages.push('…');
+
+  addPage(1);
+  if (current > 3) addDots();
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) addPage(i);
+  if (current < total - 2) addDots();
+  addPage(total);
+  return pages;
+}
+
+function goToPage(p) {
+  currentPage = p;
+  updateAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING / ERROR UI HELPERS
+════════════════════════════════════════════════════════════════ */
+function setLoading(on) {
+  document.getElementById('loading-spinner').classList.toggle('hidden', !on);
+}
+
+function showError(msg) {
+  const banner = document.getElementById('error-banner');
+  document.getElementById('error-message').textContent = msg;
+  banner.classList.remove('hidden');
+}
+
+function hideError() {
+  document.getElementById('error-banner').classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MASTER UPDATE  — fetches all three endpoints in parallel
+════════════════════════════════════════════════════════════════ */
+let lastSummaryData = null;
+
+// updateAll only refreshes the filter-sensitive panels (stats, donut, table).
+// The monthly trend chart is loaded once on boot and never re-fetched on filter change.
+async function updateAll() {
+  setLoading(true);
+  hideError();
+
+  const summaryParams = buildParams();
+  const txParams      = buildTxParams();
+
+  try {
+    const [summaryData, txData] = await Promise.all([
+      apiFetch(`${API_BASE}/transactions/summary?${summaryParams}`),
+      apiFetch(`${API_BASE}/transactions?${txParams}`)
+    ]);
+
+    lastSummaryData = summaryData;
+
+    updateStats(summaryData.summary);
+    renderCategoryBarChart(summaryData.categories);
+    renderChart(summaryData.categories);
+    renderTable(txData.transactions);
+    renderPagination(txData);
+  } catch (e) {
+    showError(`Failed to load data: ${e.message}`);
+    console.error(e);
+  } finally {
+    setLoading(false);
+  }
+}
+
+/** Fetches the full-DB monthly data once and renders the trend chart. */
+async function loadMonthlyChart() {
+  try {
+    const data = await apiFetch(
+      `${API_BASE}/transactions/monthly-by-category?${buildMonthlyParams()}`
+    );
+    lastMonthlyData = data;
+    renderMonthlyChart(data);
+  } catch (e) {
+    document.getElementById('monthly-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-10">Could not load trend data.</p>';
+    console.error('Monthly chart failed:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MONTHLY TREND CHART
+   Endpoint: GET /api/v1/transactions/monthly-by-category
+   Shows top-5 categories as smooth area series, one per month.
+   The header dropdown toggles between Expenses and Income view
+   without a new network request.
+════════════════════════════════════════════════════════════════ */
+let monthlyChartInstance = null;
+let currentMonthlyView   = 'EXPENSE';  // 'EXPENSE' | 'INCOME'
+let lastMonthlyData      = null;
+let allSeriesVisible     = true;       // tracks Select All / Deselect All state
+
+/**
+ * The monthly chart always reflects the ENTIRE database — no filter params are sent.
+ * The API defaults (no startDate/endDate/categories) return all rows.
+ */
+function buildMonthlyParams() {
+  return new URLSearchParams();
+}
+
+/** Called by the dropdown links; re-renders the chart from cached data. */
+function setMonthlyView(view) {
+  currentMonthlyView = view;
+  document.getElementById('monthly-view-label').textContent =
+    view === 'EXPENSE' ? 'Expenses' : 'Income';
+  if (lastMonthlyData) renderMonthlyChart(lastMonthlyData);
+}
+
+/**
+ * Renders (or re-renders) the multi-series area chart.
+ *
+ * Data shape from API:
+ *   { months: ["2026-01","2026-02"], series: [{ categoryName, monthlyData: [{monthYear, totalExpenses, totalIncome}] }] }
+ *
+ * Strategy:
+ *   - Pick the metric column based on currentMonthlyView.
+ *   - Take the top-5 series that have at least one non-zero data point.
+ *   - Format months as short labels ("Jan '26").
+ *   - Re-render fully on theme change or view toggle.
+ */
+function renderMonthlyChart(data) {
+  if (monthlyChartInstance) { monthlyChartInstance.destroy(); monthlyChartInstance = null; }
+
+  const metric = currentMonthlyView === 'EXPENSE' ? 'totalExpenses' : 'totalIncome';
+  const dark   = html.classList.contains('dark');
+
+  // All categories that have at least one non-zero data point for the chosen metric
+  const activeSeries = data.series
+    .filter(s => s.monthlyData.some(d => d[metric] > 0));
+
+  // Update KPI pills
+  const grandTotal = activeSeries.reduce(
+    (sum, s) => sum + s.monthlyData.reduce((a, d) => a + d[metric], 0), 0
+  );
+  document.getElementById('monthly-total-expenses').textContent =
+    '€ ' + grandTotal.toLocaleString('pt-PT', { minimumFractionDigits: 2 });
+  document.getElementById('monthly-top-category').textContent =
+    activeSeries.length > 0 ? activeSeries[0].categoryName : '—';
+
+  if (activeSeries.length === 0 || data.months.length === 0) {
+    document.getElementById('monthly-chart').innerHTML =
+      '<p class="text-center text-sm text-gray-400 py-10">No data for the selected period</p>';
+    return;
+  }
+
+  // X-axis labels: "2026-02" → "Feb '26"
+  const labels = data.months.map(m => {
+    const [y, mo] = m.split('-');
+    return new Date(+y, +mo - 1, 1).toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
+  });
+
+  const apexSeries = activeSeries.map((cat, i) => ({
+    name: cat.categoryName,
+    data: cat.monthlyData.map(d => +d[metric].toFixed(2))
+  }));
+
+  const colors = activeSeries.map((_, i) => PALETTE[i % PALETTE.length]);
+
+  monthlyChartInstance = new ApexCharts(
+    document.getElementById('monthly-chart'),
+    {
+      series: apexSeries,
+      chart: {
+        type: 'area',
+        height: 300,
+        background: 'transparent',
+        toolbar: { show: false },
+        zoom: { enabled: false }
+      },
+      colors,
+      xaxis: {
+        categories: labels,
+        labels: { style: { colors: dark ? '#9ca3af' : '#6b7280', fontSize: '12px' } },
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      },
+      yaxis: {
+        labels: {
+          style: { colors: dark ? '#9ca3af' : '#6b7280', fontSize: '12px' },
+          formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 0 })
+        }
+      },
+      dataLabels: { enabled: false },
+      stroke:     { curve: 'smooth', width: 2 },
+      fill: {
+        type: 'gradient',
+        gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.03, stops: [0, 100] }
+      },
+      grid: {
+        borderColor: dark ? '#374151' : '#f1f5f9',
+        strokeDashArray: 4
+      },
+      legend: {
+        show: true,
+        position: 'top',
+        horizontalAlign: 'left',
+        fontSize: '12px',
+        labels: { colors: dark ? '#d1d5db' : '#374151' }
+      },
+      tooltip: {
+        theme: dark ? 'dark' : 'light',
+        y: { formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) }
+      },
+      theme: { mode: dark ? 'dark' : 'light' }
+    }
+  );
+  monthlyChartInstance.render();
+
+  // Reset toggle button to "Deselect All" whenever the chart is re-rendered
+  allSeriesVisible = true;
+  document.getElementById('monthly-toggle-icon').className  = 'fa-solid fa-eye-slash text-gray-400';
+  document.getElementById('monthly-toggle-label').textContent = 'Deselect All';
+}
+
+/**
+ * Toggles all chart series on or off using ApexCharts' show/hideSeries API.
+ * State cycles: all visible → all hidden → all visible → …
+ */
+function toggleAllSeries() {
+  if (!monthlyChartInstance || !lastMonthlyData) return;
+
+  const metric = currentMonthlyView === 'EXPENSE' ? 'totalExpenses' : 'totalIncome';
+  const names  = lastMonthlyData.series
+    .filter(s => s.monthlyData.some(d => d[metric] > 0))
+    .map(s => s.categoryName);
+
+  if (allSeriesVisible) {
+    names.forEach(n => monthlyChartInstance.hideSeries(n));
+    allSeriesVisible = false;
+    document.getElementById('monthly-toggle-icon').className   = 'fa-solid fa-eye text-brand-500';
+    document.getElementById('monthly-toggle-label').textContent = 'Select All';
+  } else {
+    names.forEach(n => monthlyChartInstance.showSeries(n));
+    allSeriesVisible = true;
+    document.getElementById('monthly-toggle-icon').className   = 'fa-solid fa-eye-slash text-gray-400';
+    document.getElementById('monthly-toggle-label').textContent = 'Deselect All';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CATEGORY EDIT MODAL
+════════════════════════════════════════════════════════════════ */
+let _modalTxId = null;
+let _modalEscHandler = null;
+
+function openCategoryModal(txId, description, currentCategoryId) {
+  _modalTxId = txId;
+
+  // Populate description
+  document.getElementById('modal-tx-desc').textContent = description;
+
+  // Populate category select from cache
+  const sel = document.getElementById('modal-category-select');
+  sel.innerHTML = cachedCategories.map(cat =>
+    `<option value="${cat.id}" ${cat.id == currentCategoryId ? 'selected' : ''}>${cat.name}</option>`
+  ).join('');
+
+  // Reset error + button state
+  document.getElementById('modal-error').classList.add('hidden');
+  document.getElementById('modal-error').textContent = '';
+  setModalSaving(false);
+
+  // Show modal
+  document.getElementById('edit-category-modal').classList.remove('hidden');
+
+  // ESC to close
+  _modalEscHandler = e => { if (e.key === 'Escape') closeCategoryModal(); };
+  document.addEventListener('keydown', _modalEscHandler);
+}
+
+function closeCategoryModal() {
+  document.getElementById('edit-category-modal').classList.add('hidden');
+  _modalTxId = null;
+  if (_modalEscHandler) {
+    document.removeEventListener('keydown', _modalEscHandler);
+    _modalEscHandler = null;
+  }
+}
+
+function setModalSaving(saving) {
+  const btn = document.getElementById('modal-save-btn');
+  const spinner = document.getElementById('modal-spinner');
+  btn.disabled = saving;
+  spinner.classList.toggle('hidden', !saving);
+}
+
+async function saveCategoryChange() {
+  if (_modalTxId === null) return;
+  const categoryId = Number(document.getElementById('modal-category-select').value);
+
+  setModalSaving(true);
+  document.getElementById('modal-error').classList.add('hidden');
+
+  try {
+    await apiFetch(`${API_BASE}/transactions/${_modalTxId}/category`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ categoryId })
+    });
+    closeCategoryModal();
+    await updateAll();   // refresh table + stats with new category
+  } catch (e) {
+    const errEl = document.getElementById('modal-error');
+    errEl.textContent = e.message || 'Failed to update category.';
+    errEl.classList.remove('hidden');
+    setModalSaving(false);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET FILTERS
+════════════════════════════════════════════════════════════════ */
+function resetFilters() {
+  initDateFilters();
+  document.querySelectorAll('#category-options input[type="checkbox"]')
+    .forEach(cb => { cb.checked = false; });
+  updateCategoryLabel();
+  document.getElementById('filter-type').value = 'ALL';
+  currentPage = 1;
+  updateAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
+  initDateFilters();
+
+  // Load the full-DB trend chart first (independent of filters)
+  loadMonthlyChart();
+
+  await populateCategoryFilter();   // fetch category list for dropdown
+  await updateAll();                // initial filter-sensitive load
+
+  // Wire filter inputs — reset to page 1 then reload on any filter change
+  // (date pickers and category checkboxes call updateAll() directly)
+  document.getElementById('filter-type').addEventListener('change', () => {
+    currentPage = 1;
+    updateAll();
+  });
+
+  // ── Category multi-select dropdown ───────────────────────────────────
+  const catBtn      = document.getElementById('btn-category-filter');
+  const catDropdown = document.getElementById('category-dropdown');
+
+  const catSearch = document.getElementById('category-search');
+
+  function closeCategoryDropdown() {
+    catDropdown.classList.add('hidden');
+    catSearch.value = '';
+    // restore all rows that may have been hidden by search
+    document.querySelectorAll('#category-options label').forEach(l => l.classList.remove('hidden'));
+  }
+
+  catBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const opening = catDropdown.classList.contains('hidden');
+    catDropdown.classList.toggle('hidden');
+    if (opening) catSearch.focus();
+  });
+  document.addEventListener('click', e => {
+    if (!document.getElementById('category-multiselect-wrap').contains(e.target)) {
+      closeCategoryDropdown();
+    }
+  });
+
+  catSearch.addEventListener('input', () => {
+    const q = catSearch.value.trim().toLowerCase();
+    document.querySelectorAll('#category-options label').forEach(label => {
+      const name = label.querySelector('input').dataset.name.toLowerCase();
+      label.classList.toggle('hidden', q !== '' && !name.includes(q));
+    });
+  });
+  document.getElementById('category-clear-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    document.querySelectorAll('#category-options input[type="checkbox"]')
+      .forEach(cb => { cb.checked = false; });
+    updateCategoryLabel();
+    currentPage = 1;
+    updateAll();
+  });
+
+  // Pagination prev/next
+  document.getElementById('tx-page-prev').addEventListener('click', () => {
+    if (currentPage > 1) { currentPage--; updateAll(); }
+  });
+  document.getElementById('tx-page-next').addEventListener('click', () => {
+    currentPage++; updateAll();
+  });
+
+  // Modal button wiring
+  document.getElementById('modal-close-btn').addEventListener('click', closeCategoryModal);
+  document.getElementById('modal-cancel-btn').addEventListener('click', closeCategoryModal);
+  document.getElementById('modal-backdrop').addEventListener('click', closeCategoryModal);
+  document.getElementById('modal-save-btn').addEventListener('click', saveCategoryChange);
+
+  // ── Date-picker modals ────────────────────────────────────────────────
+  // vanillajs-datepicker instances (lazy-initialized on first modal open)
+  let dpFrom = null;
+  let dpTo   = null;
+
+  // Timezone-safe ISO string from a local Date (avoids UTC day-shift)
+  function localIso(d) {
+    const y  = d.getFullYear();
+    const m  = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }
+
+  function closeDateModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+  }
+
+  function openDateModal(modalId, filterId, dpRef, dpSetter) {
+    document.getElementById(modalId).classList.remove('hidden');
+
+    // Lazy-init: Datepicker must be created after the container is visible
+    if (!dpRef.value) {
+      const el = document.getElementById(modalId.replace('-modal', '-inline'));
+      const current = document.getElementById(filterId).value;
+      dpRef.value = new Datepicker(el, {
+        format:          'yyyy-mm-dd',
+        autohide:        false,
+        todayHighlight:  true,
+        ...(current ? { defaultViewDate: current } : {}),
+      });
+      if (current) dpRef.value.setDate(current, { render: true });
+      el.addEventListener('changeDate', () => {
+        const picked = dpRef.value.getDate();
+        if (picked) dpSetter(localIso(picked));
+      });
+    }
+  }
+
+  let pendingFromDate = null;
+  let pendingToDate   = null;
+  const dpFromRef = { value: null };
+  const dpToRef   = { value: null };
+
+  // Open buttons
+  document.getElementById('btn-filter-from').addEventListener('click', () => {
+    pendingFromDate = null;
+    openDateModal('datepicker-from-modal', 'filter-from', dpFromRef, d => { pendingFromDate = d; });
+  });
+  document.getElementById('btn-filter-to').addEventListener('click', () => {
+    pendingToDate = null;
+    openDateModal('datepicker-to-modal', 'filter-to', dpToRef, d => { pendingToDate = d; });
+  });
+
+  // Confirm buttons
+  document.getElementById('datepicker-from-confirm').addEventListener('click', () => {
+    if (pendingFromDate) {
+      setDateFilter('filter-from', pendingFromDate);
+      currentPage = 1;
+      updateAll();
+    }
+    closeDateModal('datepicker-from-modal');
+  });
+  document.getElementById('datepicker-to-confirm').addEventListener('click', () => {
+    if (pendingToDate) {
+      setDateFilter('filter-to', pendingToDate);
+      currentPage = 1;
+      updateAll();
+    }
+    closeDateModal('datepicker-to-modal');
+  });
+
+  // Close buttons / backdrop / cancel
+  ['datepicker-from-close', 'datepicker-from-cancel', 'datepicker-from-backdrop']
+    .forEach(id => document.getElementById(id).addEventListener('click', () => closeDateModal('datepicker-from-modal')));
+  ['datepicker-to-close', 'datepicker-to-cancel', 'datepicker-to-backdrop']
+    .forEach(id => document.getElementById(id).addEventListener('click', () => closeDateModal('datepicker-to-modal')));
+
+  // ESC closes whichever date modal is open
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    closeDateModal('datepicker-from-modal');
+    closeDateModal('datepicker-to-modal');
+  });
+
+  // Delegated click on category badges in the transaction table
+  document.getElementById('tx-body').addEventListener('click', e => {
+    const badge = e.target.closest('.category-badge');
+    if (!badge) return;
+    openCategoryModal(
+      Number(badge.dataset.txId),
+      badge.dataset.txDesc,
+      Number(badge.dataset.categoryId)
+    );
+  });
+});
+</script>
+</body>
+</html>

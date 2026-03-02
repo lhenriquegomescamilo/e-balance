@@ -1,0 +1,12 @@
+ktor:
+    application:
+        modules:
+            - com.ebalance.ApplicationKt.module
+    deployment:
+        port: 8080
+
+# Path to the SQLite database file, relative to the JVM working directory.
+# Gradle's :server:run task sets workingDir = backend/server/, so we need
+# two levels up to reach the project root where e-balance.db lives.
+database:
+    path: "../../e-balance.db"
