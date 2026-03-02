@@ -27,7 +27,8 @@ fun transactionModule(dbPath: String) = module {
     single<UpdateTransactionCategoryUseCase>     {
         // TVar.new is suspend; runBlocking is safe here because this factory runs
         // once at server startup outside of any coroutine dispatcher.
-        val inFlight = runBlocking { TVar.new(emptySet<Long>()) }
-        UpdateTransactionCategoryInteractor(get(), inFlight)
+        val inFlight  = runBlocking { TVar.new(emptySet<Long>()) }
+        val committed = runBlocking { TVar.new(emptyMap<Long, Long>()) }
+        UpdateTransactionCategoryInteractor(get(), inFlight, committed)
     }
 }
