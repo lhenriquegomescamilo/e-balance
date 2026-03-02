@@ -1,8 +1,10 @@
 package com.ebalance.transactions
 
+import arrow.fx.stm.TVar
 import com.ebalance.transactions.application.*
 import com.ebalance.transactions.domain.TransactionRepository
 import com.ebalance.transactions.infrastructure.persistence.TransactionRepositoryImpl
+import kotlinx.coroutines.runBlocking
 import org.koin.dsl.module
 
 /**
@@ -22,5 +24,11 @@ fun transactionModule(dbPath: String) = module {
     single<GetTransactionsUseCase>               { GetTransactionsInteractor(get()) }
     single<GetCategoriesUseCase>                 { GetCategoriesInteractor(get()) }
     single<GetMonthlySummaryUseCase>             { GetMonthlySummaryInteractor(get()) }
-    single<UpdateTransactionCategoryUseCase>     { UpdateTransactionCategoryInteractor(get()) }
+    single<UpdateTransactionCategoryUseCase>     {
+        // TVar.new is suspend; runBlocking is safe here because this factory runs
+        // once at server startup outside of any coroutine dispatcher.
+        val inFlight  = runBlocking { TVar.new(emptySet<Long>()) }
+        val committed = runBlocking { TVar.new(emptyMap<Long, Long>()) }
+        UpdateTransactionCategoryInteractor(get(), inFlight, committed)
+    }
 }

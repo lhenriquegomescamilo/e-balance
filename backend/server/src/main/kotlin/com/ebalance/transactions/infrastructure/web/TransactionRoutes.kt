@@ -1,14 +1,20 @@
 package com.ebalance.transactions.infrastructure.web
 
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.raise.either
+import arrow.core.right
 import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
 import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
+import com.ebalance.transactions.domain.TransactionError
 import com.ebalance.transactions.domain.TransactionFilter
 import com.ebalance.transactions.domain.TransactionType
 import com.ebalance.transactions.infrastructure.web.dto.*
 import io.ktor.http.*
+import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -35,102 +41,75 @@ fun Route.transactionRoutes(
 
     // ── GET /api/v1/transactions/summary ─────────────────────────────────────
     get("/transactions/summary") {
-        try {
-            val filter = parseFilter(call.request)
-            val result = summaryUseCase.execute(filter)
-
-            val totalExpenses = result.totalExpenses.toDouble()
-
-            call.respond(
-                HttpStatusCode.OK,
-                TransactionSummaryResponse(
-                    summary = SummaryStatsDto(
-                        totalIncome      = result.totalIncome.toDouble(),
-                        totalExpenses    = totalExpenses,
-                        netBalance       = result.netBalance.toDouble(),
-                        transactionCount = result.transactionCount
-                    ),
-                    categories = result.categories.map { cat ->
-                        CategorySummaryDto(
-                            categoryId           = cat.categoryId,
-                            categoryName         = cat.categoryName,
-                            totalIncome          = cat.totalIncome.toDouble(),
-                            totalExpenses        = cat.totalExpenses.toDouble(),
-                            transactionCount     = cat.transactionCount,
-                            percentageOfExpenses = if (totalExpenses > 0)
-                                cat.totalExpenses.toDouble() / totalExpenses * 100 else 0.0
+        either {
+            val filter = parseFilter(call.request).bind()
+            filter to summaryUseCase.execute(filter).bind()
+        }.fold(
+            ifLeft  = { call.respondError(it) },
+            ifRight = { (filter, result) ->
+                val totalExpenses = result.totalExpenses.toDouble()
+                call.respond(
+                    HttpStatusCode.OK,
+                    TransactionSummaryResponse(
+                        summary = SummaryStatsDto(
+                            totalIncome      = result.totalIncome.toDouble(),
+                            totalExpenses    = totalExpenses,
+                            netBalance       = result.netBalance.toDouble(),
+                            transactionCount = result.transactionCount
+                        ),
+                        categories = result.categories.map { cat ->
+                            CategorySummaryDto(
+                                categoryId           = cat.categoryId,
+                                categoryName         = cat.categoryName,
+                                totalIncome          = cat.totalIncome.toDouble(),
+                                totalExpenses        = cat.totalExpenses.toDouble(),
+                                transactionCount     = cat.transactionCount,
+                                percentageOfExpenses = if (totalExpenses > 0)
+                                    cat.totalExpenses.toDouble() / totalExpenses * 100 else 0.0
+                            )
+                        },
+                        filters = AppliedFiltersDto(
+                            startDate  = filter.startDate.toString(),
+                            endDate    = filter.endDate.toString(),
+                            categories = filter.categoryIds
                         )
-                    },
-                    filters = AppliedFiltersDto(
-                        startDate  = filter.startDate.toString(),
-                        endDate    = filter.endDate.toString(),
-                        categories = filter.categoryIds
                     )
                 )
-            )
-        } catch (e: DateTimeParseException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DATE", "Date must be ISO-8601 (YYYY-MM-DD): ${e.parsedString}")
-            )
-        } catch (e: IllegalArgumentException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
-            )
-        } catch (e: Exception) {
-            call.application.environment.log.error("Summary query failed", e)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")
-            )
-        }
+            }
+        )
     }
 
     // ── GET /api/v1/transactions ─────────────────────────────────────────────
     get("/transactions") {
-        try {
-            val filter = parseFilter(call.request)
-            val page   = transactionsUseCase.execute(filter)
-
-            call.respond(
-                HttpStatusCode.OK,
-                TransactionListResponse(
-                    transactions = page.rows.map { tx ->
-                        TransactionDto(
-                            id           = tx.id,
-                            operatedAt   = tx.operatedAt.toString(),
-                            description  = tx.description,
-                            value        = tx.value.toDouble(),
-                            balance      = tx.balance.toDouble(),
-                            categoryId   = tx.categoryId,
-                            categoryName = tx.categoryName,
-                            type         = if (tx.value.signum() >= 0) "INCOME" else "EXPENSE"
-                        )
-                    },
-                    total      = page.total,
-                    page       = page.page,
-                    pageSize   = page.pageSize,
-                    totalPages = page.totalPages
+        either {
+            val filter = parseFilter(call.request).bind()
+            transactionsUseCase.execute(filter).bind()
+        }.fold(
+            ifLeft  = { call.respondError(it) },
+            ifRight = { page ->
+                call.respond(
+                    HttpStatusCode.OK,
+                    TransactionListResponse(
+                        transactions = page.rows.map { tx ->
+                            TransactionDto(
+                                id           = tx.id,
+                                operatedAt   = tx.operatedAt.toString(),
+                                description  = tx.description,
+                                value        = tx.value.toDouble(),
+                                balance      = tx.balance.toDouble(),
+                                categoryId   = tx.categoryId,
+                                categoryName = tx.categoryName,
+                                type         = if (tx.value.signum() >= 0) "INCOME" else "EXPENSE"
+                            )
+                        },
+                        total      = page.total,
+                        page       = page.page,
+                        pageSize   = page.pageSize,
+                        totalPages = page.totalPages
+                    )
                 )
-            )
-        } catch (e: DateTimeParseException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DATE", "Date must be ISO-8601 (YYYY-MM-DD): ${e.parsedString}")
-            )
-        } catch (e: IllegalArgumentException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
-            )
-        } catch (e: Exception) {
-            call.application.environment.log.error("Transactions query failed", e)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")
-            )
-        }
+            }
+        )
     }
 
     // ── GET /api/v1/transactions/monthly-by-category ─────────────────────────
@@ -140,127 +119,103 @@ fun Route.transactionRoutes(
     // can toggle the view without an extra round-trip.
     // Missing months for a given category are zero-filled.
     get("/transactions/monthly-by-category") {
-        try {
-            val filter = parseFilter(call.request)
-            val result = monthlySummaryUseCase.execute(filter)
-
-            call.respond(
-                HttpStatusCode.OK,
-                MonthlySummaryResponse(
-                    months = result.months,
-                    series = result.series.map { s ->
-                        MonthlyCategorySeriesDto(
-                            categoryId   = s.categoryId,
-                            categoryName = s.categoryName,
-                            monthlyData  = s.monthlyData.map { d ->
-                                MonthlyCategoryDataDto(
-                                    monthYear        = d.monthYear,
-                                    totalIncome      = d.totalIncome.toDouble(),
-                                    totalExpenses    = d.totalExpenses.toDouble(),
-                                    transactionCount = d.transactionCount
-                                )
-                            }
+        either {
+            val filter = parseFilter(call.request).bind()
+            filter to monthlySummaryUseCase.execute(filter).bind()
+        }.fold(
+            ifLeft  = { call.respondError(it) },
+            ifRight = { (filter, result) ->
+                call.respond(
+                    HttpStatusCode.OK,
+                    MonthlySummaryResponse(
+                        months = result.months,
+                        series = result.series.map { s ->
+                            MonthlyCategorySeriesDto(
+                                categoryId   = s.categoryId,
+                                categoryName = s.categoryName,
+                                monthlyData  = s.monthlyData.map { d ->
+                                    MonthlyCategoryDataDto(
+                                        monthYear        = d.monthYear,
+                                        totalIncome      = d.totalIncome.toDouble(),
+                                        totalExpenses    = d.totalExpenses.toDouble(),
+                                        transactionCount = d.transactionCount
+                                    )
+                                }
+                            )
+                        },
+                        filters = AppliedFiltersDto(
+                            startDate  = filter.startDate.toString(),
+                            endDate    = filter.endDate.toString(),
+                            categories = filter.categoryIds
                         )
-                    },
-                    filters = AppliedFiltersDto(
-                        startDate  = filter.startDate.toString(),
-                        endDate    = filter.endDate.toString(),
-                        categories = filter.categoryIds
                     )
                 )
-            )
-        } catch (e: DateTimeParseException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_DATE", "Date must be ISO-8601 (YYYY-MM-DD): ${e.parsedString}")
-            )
-        } catch (e: IllegalArgumentException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
-            )
-        } catch (e: Exception) {
-            call.application.environment.log.error("Monthly summary query failed", e)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")
-            )
-        }
+            }
+        )
     }
 
     // ── PATCH /api/v1/transactions/{id}/category ─────────────────────────────
     patch("/transactions/{id}/category") {
-        try {
+        either {
             val transactionId = call.parameters["id"]?.toLongOrNull()
-                ?: return@patch call.respond(
-                    HttpStatusCode.BadRequest,
-                    ErrorResponse("INVALID_PARAMETER", "Transaction ID must be a number")
-                )
-
+                ?: raise(TransactionError.InvalidParameter("Transaction ID must be a number"))
             val body = call.receive<UpdateCategoryRequest>()
-
-            updateCategoryUseCase.execute(transactionId, body.categoryId)
-
-            call.respond(
-                HttpStatusCode.OK,
-                UpdateCategoryResponse(
-                    transactionId = transactionId,
-                    categoryId    = body.categoryId,
-                    message       = "Category updated successfully"
+            updateCategoryUseCase.execute(transactionId, body.categoryId).bind()
+            transactionId to body.categoryId
+        }.fold(
+            ifLeft  = { call.respondError(it) },
+            ifRight = { (transactionId, categoryId) ->
+                call.respond(
+                    HttpStatusCode.OK,
+                    UpdateCategoryResponse(
+                        transactionId = transactionId,
+                        categoryId    = categoryId,
+                        message       = "Category updated successfully"
+                    )
                 )
-            )
-        } catch (e: NoSuchElementException) {
-            call.respond(
-                HttpStatusCode.NotFound,
-                ErrorResponse("NOT_FOUND", e.message ?: "Resource not found")
-            )
-        } catch (e: IllegalArgumentException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
-            )
-        } catch (e: Exception) {
-            call.application.environment.log.error("Update category failed", e)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")
-            )
-        }
+            }
+        )
     }
 
     // ── GET /api/v1/categories ───────────────────────────────────────────────
     // Optional query param: ids=1,2,3  — returns only the matching categories.
     // Omitting ids (or ids=) returns all categories.
     get("/categories") {
-        try {
+        either {
             val ids = call.request.queryParameters["ids"]
-                ?.split(",")
-                ?.filter { it.isNotBlank() }
-                ?.map {
-                    it.trim().toLongOrNull()
-                        ?: throw IllegalArgumentException("Invalid category ID: '$it' — must be a number")
-                }
+                ?.split(",")?.filter { it.isNotBlank() }
+                ?.map { it.trim().toLongOrNull()
+                    ?: raise(TransactionError.InvalidParameter("Invalid category ID: '$it' — must be a number")) }
                 ?: emptyList()
-
-            val categories = categoriesUseCase.execute(ids)
-            call.respond(
-                HttpStatusCode.OK,
-                CategoryListResponse(
-                    categories = categories.map { CategoryDto(it.id, it.name, it.enumName) }
+            categoriesUseCase.execute(ids).bind()
+        }.fold(
+            ifLeft  = { call.respondError(it) },
+            ifRight = { categories ->
+                call.respond(
+                    HttpStatusCode.OK,
+                    CategoryListResponse(
+                        categories = categories.map { CategoryDto(it.id, it.name, it.enumName) }
+                    )
                 )
-            )
-        } catch (e: IllegalArgumentException) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                ErrorResponse("INVALID_PARAMETER", e.message ?: "Invalid request parameter")
-            )
-        } catch (e: Exception) {
-            call.application.environment.log.error("Categories query failed", e)
-            call.respond(
-                HttpStatusCode.InternalServerError,
-                ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred")
-            )
-        }
+            }
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper — maps a TransactionError to the appropriate HTTP response (DRY)
+// ─────────────────────────────────────────────────────────────────────────────
+private suspend fun ApplicationCall.respondError(error: TransactionError) = when (error) {
+    is TransactionError.InvalidDate      -> respond(HttpStatusCode.BadRequest,
+        ErrorResponse("INVALID_DATE", error.message))
+    is TransactionError.InvalidParameter -> respond(HttpStatusCode.BadRequest,
+        ErrorResponse("INVALID_PARAMETER", error.message))
+    is TransactionError.NotFound         -> respond(HttpStatusCode.NotFound,
+        ErrorResponse("NOT_FOUND", error.message))
+    is TransactionError.DatabaseError    -> {
+        application.environment.log.error("Database error", error.cause)
+        respond(HttpStatusCode.InternalServerError,
+            ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
     }
 }
 
@@ -275,39 +230,51 @@ fun Route.transactionRoutes(
 //   page       1-based page number (default: 1)
 //   pageSize   rows per page 1-200 (default: 20)
 // ─────────────────────────────────────────────────────────────────────────────
-private fun parseFilter(request: ApplicationRequest): TransactionFilter {
-    val today = LocalDate.now()
+private fun parseFilter(request: ApplicationRequest): Either<TransactionError, TransactionFilter> =
+    runCatching {
+        val today = LocalDate.now()
 
-    val startDate = request.queryParameters["startDate"]
-        ?.let { LocalDate.parse(it) }
-        ?: today.minusDays(30)
+        val startDate = request.queryParameters["startDate"]
+            ?.let { LocalDate.parse(it) }
+            ?: today.minusDays(30)
 
-    val endDate = request.queryParameters["endDate"]
-        ?.let { LocalDate.parse(it) }
-        ?: today
+        val endDate = request.queryParameters["endDate"]
+            ?.let { LocalDate.parse(it) }
+            ?: today
 
-    require(startDate <= endDate) { "startDate must not be after endDate" }
+        require(startDate <= endDate) { "startDate must not be after endDate" }
 
-    val categoryIds = request.queryParameters["categories"]
-        ?.split(",")
-        ?.filter { it.isNotBlank() }
-        ?.map {
-            it.trim().toLongOrNull()
-                ?: throw IllegalArgumentException("Invalid category ID: '$it' — must be a number")
+        val categoryIds = request.queryParameters["categories"]
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?.map {
+                it.trim().toLongOrNull()
+                    ?: throw IllegalArgumentException("Invalid category ID: '$it' — must be a number")
+            }
+            ?: emptyList()
+
+        val type = when (request.queryParameters["type"]?.uppercase()) {
+            "INCOME"      -> TransactionType.INCOME
+            "EXPENSE"     -> TransactionType.EXPENSE
+            null, "ALL"   -> TransactionType.ALL
+            else          -> throw IllegalArgumentException(
+                "Invalid type '${request.queryParameters["type"]}'. Must be INCOME, EXPENSE, or ALL"
+            )
         }
-        ?: emptyList()
 
-    val type = when (request.queryParameters["type"]?.uppercase()) {
-        "INCOME"      -> TransactionType.INCOME
-        "EXPENSE"     -> TransactionType.EXPENSE
-        null, "ALL"   -> TransactionType.ALL
-        else          -> throw IllegalArgumentException(
-            "Invalid type '${request.queryParameters["type"]}'. Must be INCOME, EXPENSE, or ALL"
-        )
-    }
+        val page     = request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        val pageSize = request.queryParameters["pageSize"]?.toIntOrNull()?.coerceIn(1, 200) ?: 20
 
-    val page = request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
-    val pageSize = request.queryParameters["pageSize"]?.toIntOrNull()?.coerceIn(1, 200) ?: 20
-
-    return TransactionFilter(startDate, endDate, categoryIds, type, page, pageSize)
-}
+        TransactionFilter(startDate, endDate, categoryIds, type, page, pageSize)
+    }.fold(
+        onSuccess = { it.right() },
+        onFailure = { e -> when (e) {
+            is DateTimeParseException   -> TransactionError.InvalidDate(
+                e.parsedString ?: "", "Date must be ISO-8601 (YYYY-MM-DD): ${e.parsedString}"
+            ).left()
+            is IllegalArgumentException -> TransactionError.InvalidParameter(
+                e.message ?: "Invalid request parameter"
+            ).left()
+            else -> TransactionError.DatabaseError("Error parsing filter", e).left()
+        }}
+    )

@@ -30,10 +30,13 @@ dependencies {
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.ktor.server.cors)
     implementation(libs.sqlite.jdbc)
+    implementation(libs.arrow.core)
+    implementation(libs.arrow.fx.stm)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions.core)
+    testImplementation(libs.kotest.assertions.arrow)
     testImplementation(libs.mockk)
     testImplementation(libs.ktor.client.content.negotiation)
 }

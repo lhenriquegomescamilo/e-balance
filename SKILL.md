@@ -546,7 +546,7 @@ Either.Left(error)
 result.mapLeft { ImportError.ReadError(it) }
 
 // Extract or throw
-result.bind()  // In either { } block
+result.bind()  // In Giveeither { } block
 result.getOrNull()  // Nullable
 result.getOrHandle { defaultValue }  // With default
 

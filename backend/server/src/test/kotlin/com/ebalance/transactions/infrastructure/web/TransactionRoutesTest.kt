@@ -1,5 +1,7 @@
 package com.ebalance.transactions.infrastructure.web
 
+import arrow.core.left
+import arrow.core.right
 import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
@@ -10,6 +12,7 @@ import com.ebalance.transactions.domain.CategorySummary
 import com.ebalance.transactions.domain.MonthlyCategoryData
 import com.ebalance.transactions.domain.MonthlyCategorySeries
 import com.ebalance.transactions.domain.MonthlySummaryResult
+import com.ebalance.transactions.domain.TransactionError
 import com.ebalance.transactions.domain.TransactionFilter
 import com.ebalance.transactions.domain.TransactionPage
 import com.ebalance.transactions.domain.TransactionRow
@@ -33,8 +36,8 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 import io.ktor.server.routing.*
 import io.ktor.server.testing.*
 import io.mockk.clearAllMocks
+import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.serialization.json.Json
@@ -141,7 +144,7 @@ class TransactionRoutesTest : DescribeSpec({
     describe("GET /api/v1/transactions/summary") {
 
         it("returns 200 with aggregated totals") {
-            every { summaryUseCase.execute(any()) } returns aSummaryResult()
+            every { summaryUseCase.execute(any()) } returns aSummaryResult().right()
 
             testApp {
                 val body = jsonClient().get("/api/v1/transactions/summary")
@@ -155,7 +158,7 @@ class TransactionRoutesTest : DescribeSpec({
         }
 
         it("calculates percentageOfExpenses correctly for each category") {
-            every { summaryUseCase.execute(any()) } returns aSummaryResult()
+            every { summaryUseCase.execute(any()) } returns aSummaryResult().right()
 
             testApp {
                 val body = jsonClient().get("/api/v1/transactions/summary")
@@ -175,7 +178,7 @@ class TransactionRoutesTest : DescribeSpec({
                 categories       = listOf(
                     CategorySummary(1L, "Income", BigDecimal("500.00"), BigDecimal.ZERO, 3)
                 )
-            )
+            ).right()
 
             testApp {
                 val body = jsonClient().get("/api/v1/transactions/summary")
@@ -186,7 +189,7 @@ class TransactionRoutesTest : DescribeSpec({
         }
 
         it("echoes back the applied date filters in the response") {
-            every { summaryUseCase.execute(any()) } returns aSummaryResult()
+            every { summaryUseCase.execute(any()) } returns aSummaryResult().right()
 
             testApp {
                 val body = jsonClient()
@@ -235,8 +238,9 @@ class TransactionRoutesTest : DescribeSpec({
             }
         }
 
-        it("returns 500 INTERNAL_ERROR when the use case throws an unexpected exception") {
-            every { summaryUseCase.execute(any()) } throws RuntimeException("DB connection lost")
+        it("returns 500 INTERNAL_ERROR when the use case returns a DatabaseError") {
+            every { summaryUseCase.execute(any()) } returns
+                TransactionError.DatabaseError("DB connection lost", RuntimeException("DB connection lost")).left()
 
             testApp {
                 val response = createClient {}.get("/api/v1/transactions/summary")
@@ -252,7 +256,7 @@ class TransactionRoutesTest : DescribeSpec({
     describe("GET /api/v1/transactions") {
 
         it("returns 200 with a paginated transaction list") {
-            every { transactionsUseCase.execute(any()) } returns aTransactionPage()
+            every { transactionsUseCase.execute(any()) } returns aTransactionPage().right()
 
             testApp {
                 val response = jsonClient().get("/api/v1/transactions")
@@ -268,7 +272,7 @@ class TransactionRoutesTest : DescribeSpec({
         }
 
         it("assigns EXPENSE type to transactions with a negative value") {
-            every { transactionsUseCase.execute(any()) } returns aTransactionPage()
+            every { transactionsUseCase.execute(any()) } returns aTransactionPage().right()
 
             testApp {
                 val body = jsonClient().get("/api/v1/transactions").body<TransactionListResponse>()
@@ -283,7 +287,7 @@ class TransactionRoutesTest : DescribeSpec({
                     TransactionRow(2L, LocalDate.of(2026, 1, 1), "Salary", BigDecimal("2000.00"), BigDecimal("2000.00"), 2L, "Income")
                 ),
                 total = 1, page = 1, pageSize = 20, totalPages = 1
-            )
+            ).right()
 
             testApp {
                 val body = jsonClient().get("/api/v1/transactions").body<TransactionListResponse>()
@@ -294,7 +298,7 @@ class TransactionRoutesTest : DescribeSpec({
 
         it("passes page and pageSize query params through to the filter") {
             val capturedFilter = slot<TransactionFilter>()
-            every { transactionsUseCase.execute(capture(capturedFilter)) } returns aTransactionPage(page = 3, pageSize = 50)
+            every { transactionsUseCase.execute(capture(capturedFilter)) } returns aTransactionPage(page = 3, pageSize = 50).right()
 
             testApp {
                 jsonClient().get("/api/v1/transactions?page=3&pageSize=50")
@@ -306,7 +310,7 @@ class TransactionRoutesTest : DescribeSpec({
 
         it("defaults to page=1 and pageSize=20 when params are absent") {
             val capturedFilter = slot<TransactionFilter>()
-            every { transactionsUseCase.execute(capture(capturedFilter)) } returns aTransactionPage()
+            every { transactionsUseCase.execute(capture(capturedFilter)) } returns aTransactionPage().right()
 
             testApp {
                 jsonClient().get("/api/v1/transactions")
@@ -331,7 +335,7 @@ class TransactionRoutesTest : DescribeSpec({
     describe("GET /api/v1/transactions/monthly-by-category") {
 
         it("returns 200 with months list and category series data") {
-            every { monthlySummaryUseCase.execute(any()) } returns aMonthlySummaryResult()
+            every { monthlySummaryUseCase.execute(any()) } returns aMonthlySummaryResult().right()
 
             testApp {
                 val response = jsonClient().get("/api/v1/transactions/monthly-by-category")
@@ -355,8 +359,9 @@ class TransactionRoutesTest : DescribeSpec({
             }
         }
 
-        it("returns 500 INTERNAL_ERROR when the use case throws an unexpected exception") {
-            every { monthlySummaryUseCase.execute(any()) } throws RuntimeException("Unexpected failure")
+        it("returns 500 INTERNAL_ERROR when the use case returns a DatabaseError") {
+            every { monthlySummaryUseCase.execute(any()) } returns
+                TransactionError.DatabaseError("Unexpected failure", RuntimeException("Unexpected failure")).left()
 
             testApp {
                 val response = createClient {}.get("/api/v1/transactions/monthly-by-category")
@@ -372,7 +377,7 @@ class TransactionRoutesTest : DescribeSpec({
     describe("PATCH /api/v1/transactions/{id}/category") {
 
         it("returns 200 with a success response when the category is updated") {
-            justRun { updateCategoryUseCase.execute(42L, 5L) }
+            coEvery { updateCategoryUseCase.execute(42L, 5L) } returns Unit.right()
 
             testApp {
                 val response = jsonClient().patch("/api/v1/transactions/42/category") {
@@ -401,8 +406,8 @@ class TransactionRoutesTest : DescribeSpec({
         }
 
         it("returns 404 NOT_FOUND when the transaction does not exist") {
-            every { updateCategoryUseCase.execute(any(), any()) } throws
-                NoSuchElementException("Transaction 999 not found")
+            coEvery { updateCategoryUseCase.execute(any(), any()) } returns
+                TransactionError.NotFound("Transaction 999 not found").left()
 
             testApp {
                 val response = jsonClient().patch("/api/v1/transactions/999/category") {
@@ -416,8 +421,8 @@ class TransactionRoutesTest : DescribeSpec({
         }
 
         it("returns 404 NOT_FOUND when the category does not exist") {
-            every { updateCategoryUseCase.execute(any(), any()) } throws
-                NoSuchElementException("Category 99 not found")
+            coEvery { updateCategoryUseCase.execute(any(), any()) } returns
+                TransactionError.NotFound("Category 99 not found").left()
 
             testApp {
                 val response = jsonClient().patch("/api/v1/transactions/1/category") {
@@ -429,9 +434,9 @@ class TransactionRoutesTest : DescribeSpec({
             }
         }
 
-        it("returns 400 INVALID_PARAMETER when the use case throws IllegalArgumentException") {
-            every { updateCategoryUseCase.execute(any(), any()) } throws
-                IllegalArgumentException("Category ID must be positive")
+        it("returns 400 INVALID_PARAMETER when the use case returns an InvalidParameter error") {
+            coEvery { updateCategoryUseCase.execute(any(), any()) } returns
+                TransactionError.InvalidParameter("Category ID must be positive").left()
 
             testApp {
                 val response = jsonClient().patch("/api/v1/transactions/1/category") {
@@ -456,7 +461,7 @@ class TransactionRoutesTest : DescribeSpec({
         )
 
         it("returns 200 with all categories when no ids param is provided") {
-            every { categoriesUseCase.execute(emptyList()) } returns categories
+            every { categoriesUseCase.execute(emptyList()) } returns categories.right()
 
             testApp {
                 val response = jsonClient().get("/api/v1/categories")
@@ -469,7 +474,7 @@ class TransactionRoutesTest : DescribeSpec({
 
         it("returns 200 with only the requested categories when ids param is provided") {
             every { categoriesUseCase.execute(listOf(1L, 3L)) } returns
-                categories.filter { it.id in listOf(1L, 3L) }
+                categories.filter { it.id in listOf(1L, 3L) }.right()
 
             testApp {
                 val response = jsonClient().get("/api/v1/categories?ids=1,3")
@@ -490,8 +495,9 @@ class TransactionRoutesTest : DescribeSpec({
             }
         }
 
-        it("returns 500 INTERNAL_ERROR when the use case throws an unexpected exception") {
-            every { categoriesUseCase.execute(any()) } throws RuntimeException("DB error")
+        it("returns 500 INTERNAL_ERROR when the use case returns a DatabaseError") {
+            every { categoriesUseCase.execute(any()) } returns
+                TransactionError.DatabaseError("DB error", RuntimeException("DB error")).left()
 
             testApp {
                 val response = createClient {}.get("/api/v1/categories")
