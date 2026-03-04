@@ -3,3 +3,4 @@ plugins {
 }
 rootProject.name = "e-balance"
 include("classification")
+include("metal-bridge")

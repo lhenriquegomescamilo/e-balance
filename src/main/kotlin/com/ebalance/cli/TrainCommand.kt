@@ -2,13 +2,16 @@ package com.ebalance.cli
 
 import arrow.core.fold
 import com.ebalance.classification.CategoryClassifierTrainer
+import com.ebalance.classification.MetalNeuralNetwork
 import com.ebalance.classification.TextClassifierNeuralNetwork
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
+import java.io.File
 import kotlin.io.path.inputStream
 
 class TrainCommand : CliktCommand(name = "train") {
@@ -33,6 +36,15 @@ class TrainCommand : CliktCommand(name = "train") {
             "  neural-network     Built-in bag-of-words neural network (saves *.bin)"
         )
 
+    private val useGpu: Boolean by option("--gpu")
+        .flag("--no-gpu", default = false)
+        .help(
+            "Use Apple Metal GPU for training (neural-network engine only).\n" +
+            "Requires libmetal_bridge.dylib on java.library.path.\n" +
+            "Build once with: ./gradlew :metal-bridge:linkReleaseSharedMacosArm64\n" +
+            "Then install:    ./gradlew installDistWithMetal"
+        )
+
     override fun help(context: Context): String =
         "Train the category classifier.\n\n" +
         "The classifier learns from a dataset of business names mapped to category IDs.\n" +
@@ -44,14 +56,20 @@ class TrainCommand : CliktCommand(name = "train") {
             return
         }
 
+        if (useGpu && selectedEngine != ClassifierEngine.NEURAL_NETWORK) {
+            echo("Error: --gpu is only supported with --engine neural-network", err = true)
+            return
+        }
+
         echo("Training category classifier...")
         echo("Engine:  ${selectedEngine.cliName}")
         echo("Model:   $modelPath")
         echo("Epochs:  $epochs")
+        if (useGpu) echo("Backend: Metal GPU (Apple Silicon)")
 
         when (selectedEngine) {
             ClassifierEngine.PARAGRAPH_VECTORS -> trainParagraphVectors()
-            ClassifierEngine.NEURAL_NETWORK -> trainNeuralNetwork()
+            ClassifierEngine.NEURAL_NETWORK    -> trainNeuralNetwork()
         }
     }
 
@@ -96,13 +114,13 @@ class TrainCommand : CliktCommand(name = "train") {
     }
 
     // -------------------------------------------------------------------------
-    // neural-network  (built-in TextClassifierNeuralNetwork)
+    // neural-network  —  dispatches to CPU or GPU path based on --gpu flag
     // -------------------------------------------------------------------------
 
     private fun trainNeuralNetwork() {
         val rawText: String = if (datasetFile != null) {
             echo("Dataset: $datasetFile")
-            java.io.File(datasetFile!!).readText()
+            File(datasetFile!!).readText()
         } else {
             echo("Dataset: classpath default")
             TrainCommand::class.java.getResourceAsStream("/dataset/category.for.training.csv")
@@ -114,51 +132,65 @@ class TrainCommand : CliktCommand(name = "train") {
         }
 
         val lines = rawText.lines().filter { it.isNotBlank() && it.contains(';') }
-
         if (lines.isEmpty()) {
             echo("Error: No valid training entries found in dataset", err = true)
             return
         }
 
         val labels = lines.map { it.split(";")[0].trim() }.distinct()
-        // Split on whitespace runs and drop blank tokens (avoids empty-string feature pollution)
         val words  = lines.flatMap { it.split(";", limit = 2)[1].trim().lowercase()
             .split(Regex("\\s+")).filter { w -> w.isNotBlank() } }.distinct()
 
-        // Inverse-frequency class weights to compensate for class imbalance
-        val labelCounts = lines.groupingBy { it.split(";")[0].trim() }.eachCount()
-        val avgCount = labelCounts.values.average()
+        val labelCounts  = lines.groupingBy { it.split(";")[0].trim() }.eachCount()
+        val avgCount     = labelCounts.values.average()
         val classWeights = labels.associateWith { label -> avgCount / (labelCounts[label] ?: 1) }
 
         echo("Loaded ${lines.size} entries — labels=${labels.size}, vocab=${words.size}")
         echo("Building network: input=${words.size}, hidden=256, output=${labels.size}")
 
-        // lambda=0.0: L1 regularization destroys input→hidden weights for sparse bag-of-words
-        // inputs (word appears 1×/epoch → L1 drain >> gradient signal → weight → 0).
-        // With 199 training samples, overfitting is not a concern.
-        val nn = TextClassifierNeuralNetwork(words.size, 256, labels.size, lambda = 0.0, labels = labels, words = words)
+        if (useGpu) trainOnGpu(rawText, lines, labels, words, classWeights)
+        else        trainOnCpu(rawText, lines, labels, words, classWeights)
+    }
+
+    // ── CPU path ─────────────────────────────────────────────────────────────
+
+    private fun trainOnCpu(
+        rawText: String,
+        lines: List<String>,
+        labels: List<String>,
+        words: List<String>,
+        classWeights: Map<String, Double>
+    ) {
+        // lambda=0.0: L1 regularization destroys input→hidden weights for sparse
+        // bag-of-words inputs (word appears 1×/epoch → L1 drain >> gradient signal).
+        val nn = TextClassifierNeuralNetwork(
+            inputSize  = words.size,
+            hiddenSize = 256,
+            outputSize = labels.size,
+            lambda     = 0.0,
+            labels     = labels,
+            words      = words
+        )
 
         repeat(epochs) { epoch ->
             lines.forEach { line ->
-                val parts = line.split(";", limit = 2)
-                val label = parts[0].trim()
-                // Exact word-set membership instead of substring contains
+                val parts     = line.split(";", limit = 2)
+                val label     = parts[0].trim()
                 val descWords = parts[1].trim().lowercase().split(Regex("\\s+")).toSet()
-                val inputVec = DoubleArray(words.size) { i -> if (words[i] in descWords) 1.0 else 0.0 }
-                val targetVec = DoubleArray(labels.size) { i -> if (labels[i] == label) 1.0 else 0.0 }
-                val weight = classWeights[label] ?: 1.0
-                nn.train(inputVec, targetVec, 0.1, weight)
+                val inputVec  = DoubleArray(words.size)  { i -> if (words[i]  in descWords) 1.0 else 0.0 }
+                val targetVec = DoubleArray(labels.size) { i -> if (labels[i] == label)     1.0 else 0.0 }
+                nn.train(inputVec, targetVec, 0.1, classWeights[label] ?: 1.0)
             }
-            if ((epoch + 1) % 100 == 0 || epoch == 0) {
-                echo("  Epoch ${epoch + 1}/$epochs done")
-            }
+            if ((epoch + 1) % 100 == 0 || epoch == 0) echo("  Epoch ${epoch + 1}/$epochs done")
         }
 
         val r2Score = nn.score(rawText, rawText)
         nn.saveModel(modelPath)
+        writeMetaSidecar("cpu")
 
         echo("""
             |Training completed successfully!
+            |  Backend:          CPU
             |  Dataset entries: ${lines.size}
             |  Labels:          ${labels.size}
             |  Vocabulary:      ${words.size}
@@ -166,5 +198,73 @@ class TrainCommand : CliktCommand(name = "train") {
             |  R² score:        ${"%.4f".format(r2Score)} (train set; 1.0 = perfect)
             |  Model saved to:  $modelPath
         """.trimMargin())
+    }
+
+    // ── GPU path ─────────────────────────────────────────────────────────────
+
+    private fun trainOnGpu(
+        rawText: String,
+        lines: List<String>,
+        labels: List<String>,
+        words: List<String>,
+        classWeights: Map<String, Double>
+    ) {
+        // Pre-build the full-batch FloatArray matrices once outside the epoch loop.
+        // MetalNeuralNetwork expects flattened row-major layout: [batch × features].
+        val inputs  = FloatArray(lines.size * words.size)
+        val targets = FloatArray(lines.size * labels.size)
+        val weights = FloatArray(lines.size)
+
+        lines.forEachIndexed { i, line ->
+            val parts     = line.split(";", limit = 2)
+            val label     = parts[0].trim()
+            val descWords = parts[1].trim().lowercase().split(Regex("\\s+")).toSet()
+            words.forEachIndexed  { j, w -> inputs [i * words.size  + j] = if (w in descWords) 1f else 0f }
+            labels.forEachIndexed { j, l -> targets[i * labels.size + j] = if (l == label)     1f else 0f }
+            weights[i] = (classWeights[label] ?: 1.0).toFloat()
+        }
+
+        try {
+            MetalNeuralNetwork(
+                inputSize  = words.size,
+                hiddenSize = 256,
+                outputSize = labels.size,
+                maxBatch   = lines.size,
+                labels     = labels,
+                words      = words
+            ).use { nn ->
+                repeat(epochs) { epoch ->
+                    nn.trainBatch(inputs, targets, weights, lines.size, 0.1f)
+                    if ((epoch + 1) % 100 == 0 || epoch == 0) echo("  Epoch ${epoch + 1}/$epochs done")
+                }
+
+                nn.saveModel(modelPath)
+                writeMetaSidecar("gpu")
+
+                echo("""
+                    |Training completed successfully!
+                    |  Backend:          Metal GPU
+                    |  Dataset entries: ${lines.size}
+                    |  Labels:          ${labels.size}
+                    |  Vocabulary:      ${words.size}
+                    |  Epochs:          $epochs
+                    |  Model saved to:  $modelPath
+                """.trimMargin())
+            }
+        } catch (e: UnsatisfiedLinkError) {
+            echo("Error: Metal GPU bridge not found — ${e.message}", err = true)
+            echo("Build it first:", err = true)
+            echo("  ./gradlew :metal-bridge:linkReleaseSharedMacosArm64", err = true)
+            echo("Then run via:", err = true)
+            echo("  ./gradlew installDistWithMetal   (copies dylib into distribution)", err = true)
+            echo("  or pass -Djava.library.path=metal-bridge/build/bin/macosArm64/releaseShared", err = true)
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Writes a sidecar file next to the model so ImportCommand can show the training backend. */
+    private fun writeMetaSidecar(backend: String) {
+        File("$modelPath.meta").writeText("training.backend=$backend\ntraining.epochs=$epochs\n")
     }
 }

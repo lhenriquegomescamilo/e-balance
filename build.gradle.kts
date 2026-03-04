@@ -1,3 +1,5 @@
+import java.io.File
+
 plugins {
     kotlin("jvm") version "2.3.0"
     application
@@ -78,4 +80,82 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// ---------------------------------------------------------------------------
+// Metal GPU bridge distribution support
+// ---------------------------------------------------------------------------
+
+// If the dylib was already built (e.g. after running :metal-bridge:linkReleaseSharedMacosArm64),
+// automatically copy it into the distribution's lib/ directory.
+// This is a no-op on non-Apple machines or when the dylib has not been built yet.
+tasks.named("installDist") {
+    doLast {
+        val dylib = file("metal-bridge/build/bin/macosArm64/releaseShared/libmetal_bridge.dylib")
+        if (dylib.exists()) {
+            copy {
+                from(dylib)
+                into(layout.buildDirectory.dir("install/e-balance/lib"))
+            }
+            logger.lifecycle("Metal GPU bridge included in distribution: libmetal_bridge.dylib → lib/")
+        }
+    }
+}
+
+// When both installDist and the Metal bridge build are in the task graph together,
+// installDist must run after the dylib is ready so its doLast block can copy it.
+tasks.named("installDist").configure {
+    mustRunAfter(":metal-bridge:linkReleaseSharedMacosArm64")
+}
+
+// Creates a minimal xcodebuild shim at the CLT path so Kotlin/Native cinterop
+// succeeds on machines that have only Command Line Tools (no full Xcode.app).
+// The shim satisfies `xcrun xcodebuild -version` with a hardcoded Xcode 16.2 response.
+// It is a no-op if a real (or previously installed) xcodebuild is already present.
+tasks.register("setupXcodebuildShim") {
+    group = "setup"
+    description = "Creates a minimal xcodebuild shim so Kotlin/Native cinterop works without full Xcode.app (sudo required)"
+    doLast {
+        val shimPath = "/Library/Developer/CommandLineTools/usr/bin/xcodebuild"
+        if (file(shimPath).exists()) {
+            logger.lifecycle("xcodebuild already present at $shimPath — shim not needed.")
+            return@doLast
+        }
+        logger.lifecycle("Creating xcodebuild shim at $shimPath (requires sudo)...")
+        val shimScript = """
+            #!/bin/bash
+            if [[ "${'$'}*" == *"-version"* ]]; then
+                echo "Xcode 16.2"
+                echo "Build version 16C5032a"
+                exit 0
+            fi
+        """.trimIndent()
+        val tmp = File.createTempFile("xcodebuild_shim", ".sh")
+        try {
+            tmp.writeText(shimScript)
+            project.exec { commandLine("sudo", "cp", tmp.absolutePath, shimPath) }
+            project.exec { commandLine("sudo", "chmod", "+x", shimPath) }
+        } finally {
+            tmp.delete()
+        }
+        logger.lifecycle("Verifying shim: xcrun xcodebuild -version")
+        project.exec { commandLine("xcrun", "xcodebuild", "-version") }
+        logger.lifecycle("xcodebuild shim installed successfully.")
+    }
+}
+
+// Make every task in the metal-bridge subproject run after the shim is ready,
+// so cinterop never fires before xcodebuild is available.
+project(":metal-bridge").tasks.configureEach {
+    mustRunAfter("setupXcodebuildShim")
+}
+
+// One-command convenience task: install the xcodebuild shim if needed, build the
+// Metal bridge, then install the full distribution.
+// Usage: ./gradlew installDistWithMetal
+// Requires: Apple Silicon Mac with Command Line Tools (sudo access for shim creation).
+tasks.register("installDistWithMetal") {
+    group = "distribution"
+    description = "Installs xcodebuild shim if needed, builds the Metal GPU bridge, and installs the full distribution (Apple Silicon)"
+    dependsOn("setupXcodebuildShim", ":metal-bridge:linkReleaseSharedMacosArm64", "installDist")
 }

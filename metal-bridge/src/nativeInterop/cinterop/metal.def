@@ -1,0 +1,6 @@
+# Apple Metal + Foundation frameworks.
+# Kotlin/Native cinterop generates Kotlin bindings from the Objective-C headers.
+language = Objective-C
+modules = Metal Foundation
+compilerOpts = -framework Metal -framework Foundation
+linkerOpts   = -framework Metal -framework Foundation

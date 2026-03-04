@@ -11,6 +11,7 @@ E-Balance is a CLI tool that imports bank transactions from Excel files into SQL
 - **Database Migrations** - Flyway for schema versioning
 - **Coroutines** - Structured concurrency with injected dispatchers
 - **TDD-ready** - Kotest + MockK testing stack
+- **Kotlin/Native Metal bridge** - GPU-accelerated neural network training on Apple Silicon via a pure-Kotlin JNI shared library (`metal-bridge/`)
 
 ## Project Structure
 
@@ -41,6 +42,22 @@ src/main/kotlin/com/ebalance/
 src/main/resources/
 └── db/migration/
     └── V1__Create_transactions_table.sql
+
+classification/src/main/kotlin/com/ebalance/classification/
+├── TextClassifierNeuralNetwork.kt   # CPU feedforward NN (bag-of-words, Double)
+├── NeuralNetworkClassifier.kt       # Trains/saves/loads the CPU NN
+└── MetalNeuralNetwork.kt            # GPU-accelerated NN — JVM wrapper for metal-bridge
+
+metal-bridge/                        # Kotlin/Native module → libmetal_bridge.dylib
+├── build.gradle.kts                 # macosArm64 target, sharedLib, two cinterops
+└── src/
+    ├── nativeInterop/cinterop/
+    │   ├── jni.def                  # Imports jni.h so Kotlin/Native knows JNI types
+    │   └── metal.def                # Imports Metal + Foundation (language = Objective-C)
+    └── macosArm64Main/kotlin/com/ebalance/metalbridge/
+        ├── Shaders.kt               # 11 MSL kernels as an embedded string constant
+        ├── MetalContext.kt          # Metal device, pipelines, GPU buffers, train/predict
+        └── JniExports.kt            # @CName("Java_…") JNI exports, pure Kotlin/Native
 ```
 
 ## Architecture Patterns
@@ -124,6 +141,87 @@ class SQLiteTransactionRepository(
     // Implementation using runCatching + fold
 }
 ```
+
+### Kotlin/Native JNI Bridge Pattern (metal-bridge)
+
+The `metal-bridge` module is a **Kotlin/Native shared library** that exposes GPU
+operations to the JVM via standard JNI — no Objective-C, no third-party ML framework.
+
+#### Call chain
+
+```
+JVM Kotlin (MetalNeuralNetwork)
+  System.loadLibrary("metal_bridge")
+  external fun trainBatch(ctx: Long, inputs: FloatArray, …)
+      ↓ JNI (symbol lookup by name)
+Kotlin/Native (JniExports.kt)
+  @CName("Java_com_ebalance_classification_MetalNeuralNetwork_trainBatch")
+  fun jniTrainBatch(env: CPointer<JNIEnvVar>, …) { … }
+      ↓ platform.Metal.* cinterop bindings
+MetalContext.kt — MTLDevice, MTLCommandQueue, MTLBuffer
+      ↓ MTLComputeCommandEncoder
+Apple GPU — MSL kernels compiled at runtime from NN_SHADERS string
+```
+
+#### Key Kotlin/Native idioms
+
+```kotlin
+// 1. Export a C symbol with the JNI naming convention
+@CName("Java_com_ebalance_classification_MetalNeuralNetwork_createContext")
+fun jniCreateContext(env: CPointer<JNIEnvVar>, clazz: jclass,
+                     inputSize: jint, hiddenSize: jint, outputSize: jint, maxBatch: jint
+): jlong = ctxStore(MetalContext(inputSize, hiddenSize, outputSize, maxBatch))
+
+// 2. Keep a Kotlin/Native object alive across JNI calls with StableRef
+private fun ctxStore(ctx: MetalContext): jlong =
+    StableRef.create(ctx).asCPointer().rawValue.toLong()
+
+private fun ctxLoad(handle: jlong): MetalContext =
+    interpretCPointer<CPointed>(handle)!!.asStableRef<MetalContext>().get()
+
+private fun ctxFree(handle: jlong) =
+    interpretCPointer<CPointed>(handle)!!.asStableRef<MetalContext>().dispose()
+
+// 3. Access the JNI function table (env is JNIEnv* = double pointer)
+private fun CPointer<JNIEnvVar>.table(): JNINativeInterface_ = pointed!!.pointed
+private fun CPointer<JNIEnvVar>.pinFloats(arr: jfloatArray?): CPointer<FloatVar>? =
+    table().GetFloatArrayElements!!.invoke(pointed, arr, null)
+
+// 4. Allocate a shared MTLBuffer from a Kotlin FloatArray (zero-copy on Apple Silicon)
+private fun sharedBuffer(data: FloatArray): MTLBufferProtocol =
+    data.usePinned { pinned ->
+        device.newBufferWithBytes(pinned.addressOf(0),
+            (data.size * Float.SIZE_BYTES).toULong(),
+            MTLResourceStorageModeShared)!!
+    }
+
+// 5. Embed MSL shader source and compile at runtime — no .metal files needed
+val lib = device.newLibraryWithSource(NN_SHADERS, null, errorRef.ptr)
+val fn  = lib.newFunctionWithName("matmul")
+val ps  = device.newComputePipelineStateWithFunction(fn, errorRef.ptr)
+```
+
+#### cinterop def files
+
+`jni.def` — imports `jni.h`; compiler opts (`-I .../include`) injected from `build.gradle.kts`:
+```
+headers = jni.h
+```
+
+`metal.def` — imports Metal and Foundation Objective-C frameworks:
+```
+language = Objective-C
+modules = Metal Foundation
+compilerOpts = -framework Metal -framework Foundation
+linkerOpts   = -framework Metal -framework Foundation
+```
+
+#### Float32 constraint
+
+Metal does not support `float64`. `MetalNeuralNetwork` uses `FloatArray`/`Float`
+throughout. `TextClassifierNeuralNetwork` uses `DoubleArray`/`Double`. The saved
+`.bin` model writes weights as `Double` so both CPU and GPU models share the same
+file format and are interchangeable at inference time.
 
 ### Coroutines Best Practices
 
@@ -366,14 +464,48 @@ From the URL: `https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit`
 Train the ML classifier model.
 
 ```bash
-# Train with default dataset
+# Train with default dataset (paragraph-vectors engine, saves model.zip)
 ./gradlew run --args="train"
 
 # Train with custom dataset
 ./gradlew run --args="--dataset /path/to/dataset.csv train"
+
+# Train with built-in neural-network engine (CPU, saves nn-model.bin)
+./gradlew run --args="--model nn-model.bin train --engine neural-network"
+
+# Train with neural-network engine, custom epoch count
+./gradlew run --args="--model nn-model.bin train --engine neural-network --epoch 10000000"
 ```
 
-The model is saved to `model.zip` and used automatically during import.
+The model is saved to `model.zip` (paragraph-vectors) or `nn-model.bin` (neural-network)
+and used automatically during import when the matching `--engine` flag is passed.
+
+### Metal GPU Acceleration (Apple Silicon)
+
+Build the Kotlin/Native shared library once; then every training run uses the GPU.
+
+```bash
+# 1. Build the dylib (requires full Xcode.app, not just CLT)
+./gradlew :metal-bridge:linkReleaseSharedMacosArm64
+# → metal-bridge/build/bin/macosArm64/releaseShared/libmetal_bridge.dylib
+
+# 2. Deploy alongside the app binary
+./gradlew installDist
+cp metal-bridge/build/bin/macosArm64/releaseShared/libmetal_bridge.dylib \
+   build/install/e-balance/lib/
+
+# 3. Train on GPU (same CLI flags, GPU used automatically when dylib is present)
+./build/install/e-balance/bin/e-balance \
+    --model nn-model.bin train --engine neural-network --epoch 10000000
+
+# Or via Gradle with an explicit library path
+./gradlew run \
+    --args="--model nn-model.bin train --engine neural-network --epoch 10000000" \
+    -Djava.library.path=metal-bridge/build/bin/macosArm64/releaseShared
+```
+
+The saved `nn-model.bin` is binary-compatible with the CPU engine — train with
+Metal, run inference anywhere.
 
 ### Database Operations
 
@@ -521,6 +653,7 @@ generateSequence { iterator.nextOrNull() }
 | Arrow Core | 2.0.1 | Functional error handling |
 | Kotest | 6.1.3 | Testing framework |
 | MockK | 1.14.9 | Mocking library |
+| Apple Metal (Kotlin/Native cinterop) | macOS built-in | GPU compute for neural-network engine on Apple Silicon |
 
 ## Quick Reference
 

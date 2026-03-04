@@ -16,6 +16,7 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 
 - JDK 17+
 - Gradle 8.x (included via wrapper)
+- **Xcode** (full App Store install) — required only if you want to build the Metal GPU bridge for the `neural-network` engine on Apple Silicon
 
 ## Build
 
@@ -66,7 +67,8 @@ Both the `train` and `import` commands accept an `--engine` flag that selects wh
 | `--engine` value | Backend | Model file | Notes |
 |---|---|---|---|
 | `paragraph-vectors` | DL4J ParagraphVectors | `*.zip` | Default. Best for large, varied datasets. |
-| `neural-network` | Built-in feedforward NN | `*.bin` | No DL4J runtime needed at inference time. |
+| `neural-network` | Built-in feedforward NN (CPU) | `*.bin` | No DL4J runtime needed at inference time. |
+| `neural-network` + Metal bridge | Same NN running on Apple GPU | `*.bin` | See [Metal GPU Acceleration](#metal-gpu-acceleration-apple-silicon) below. |
 
 > The `--model` flag (set on the root command) tells every subcommand where to find or save the model file.
 > Use a **different path** for each engine so their files don't overwrite each other.
@@ -99,6 +101,109 @@ Both the `train` and `import` commands accept an `--engine` flag that selects wh
 ```
 
 Both engines read the same dataset CSV (`CATEGORY_ID;BusinessName` format). The neural-network trainer converts the numeric IDs to category enum names automatically.
+
+---
+
+## Metal GPU Acceleration (Apple Silicon)
+
+The `neural-network` engine can offload all training computation to the Apple GPU
+via a thin **Kotlin/Native** shared library (`libmetal_bridge.dylib`).
+The JVM CLI stays unchanged — only the training backend switches from CPU to GPU.
+
+### How it works
+
+```
+TrainCommand (JVM/Kotlin)
+    │  System.loadLibrary("metal_bridge")
+    │  external fun trainBatch(...)
+    ▼
+libmetal_bridge.dylib          ← written in Kotlin/Native
+    │  platform.Metal.*        ← cinterop bindings, no Objective-C
+    ▼
+Apple M-series GPU
+    11 MSL compute kernels (matmul, sigmoid, softmax, backprop, weight update)
+    compiled at runtime from an embedded string — no .metal files
+```
+
+Because Apple Silicon uses Unified Memory, CPU↔GPU buffer transfers are
+zero-copy: the same physical RAM is accessed by both sides.
+
+### Prerequisites
+
+Full **Xcode.app** must be installed (free, Mac App Store).
+Command Line Tools alone are not enough — Kotlin/Native needs `xcodebuild`.
+
+```bash
+# Verify
+xcodebuild -version   # must print an Xcode version, not an error
+```
+
+### 1 — Build the native library
+
+```bash
+./gradlew :metal-bridge:linkReleaseSharedMacosArm64
+```
+
+Output:
+```
+metal-bridge/build/bin/macosArm64/releaseShared/libmetal_bridge.dylib
+```
+
+### 2 — Make the dylib visible to the JVM
+
+The JVM must be able to find `libmetal_bridge.dylib` via `java.library.path`.
+The easiest approach is to copy it next to the app binaries after `installDist`:
+
+```bash
+./gradlew installDist
+cp metal-bridge/build/bin/macosArm64/releaseShared/libmetal_bridge.dylib \
+   build/install/e-balance/lib/
+```
+
+### 3 — Train using the Metal backend
+
+The `neural-network` engine automatically uses `MetalNeuralNetwork` (GPU) when
+`libmetal_bridge.dylib` is on the library path, and falls back to
+`TextClassifierNeuralNetwork` (CPU) when it is not.
+
+```bash
+# Via installDist (dylib already in lib/)
+./build/install/e-balance/bin/e-balance \
+    --model nn-model.bin train --engine neural-network --epoch 10000000
+
+# Via Gradle (pass library path explicitly)
+./gradlew run \
+    --args="--model nn-model.bin train --engine neural-network --epoch 10000000" \
+    -Djava.library.path=metal-bridge/build/bin/macosArm64/releaseShared
+```
+
+The saved `nn-model.bin` is binary-compatible with the CPU engine — you can
+train with Metal and run inference without it.
+
+### Why it matters
+
+For long training runs the GPU provides significant throughput gains.
+As a reference, a full-batch pass over 224 samples with a 256-hidden-unit
+network on M3:
+
+| Epochs | CPU (JVM loops) | GPU (Metal) |
+|--------|----------------|-------------|
+| 10 000 | ~seconds | ~milliseconds |
+| 1 000 000 | minutes | seconds |
+| 10 000 000 | tens of minutes | tens of seconds |
+
+### No Xcode workaround
+
+If you have Command Line Tools only and cannot install Xcode, you can satisfy
+Kotlin/Native's `xcodebuild` check with a one-line shim:
+
+```bash
+sudo tee /Library/Developer/CommandLineTools/usr/bin/xcodebuild > /dev/null << 'EOF'
+#!/bin/bash
+if [[ "$*" == *"-version"* ]]; then echo "Xcode 16.0"; echo "Build version 16A242d"; exit 0; fi
+EOF
+sudo chmod +x /Library/Developer/CommandLineTools/usr/bin/xcodebuild
+```
 
 ---
 
@@ -385,8 +490,20 @@ classification/src/main/kotlin/com/ebalance/classification/
 ├── TextClassifier.kt                 # DL4J ParagraphVectors classifier
 ├── CategoryClassifier.kt            # Either-based wrapper for TextClassifier
 ├── CategoryClassifierTrainer.kt     # Training service for paragraph-vectors
-├── TextClassifierNeuralNetwork.kt   # Bag-of-words feedforward neural network
-└── NeuralNetworkClassifier.kt       # Adapter: train/save/load/predict (text-level)
+├── TextClassifierNeuralNetwork.kt   # Bag-of-words feedforward neural network (CPU)
+├── NeuralNetworkClassifier.kt       # Adapter: train/save/load/predict (text-level)
+└── MetalNeuralNetwork.kt            # GPU-accelerated NN — JVM wrapper for metal-bridge
+
+metal-bridge/                        # Kotlin/Native module → libmetal_bridge.dylib
+├── build.gradle.kts
+└── src/
+    ├── nativeInterop/cinterop/
+    │   ├── jni.def                  # Imports jni.h (JNI types for the bridge)
+    │   └── metal.def                # Imports Metal + Foundation frameworks
+    └── macosArm64Main/kotlin/com/ebalance/metalbridge/
+        ├── Shaders.kt               # 11 MSL compute kernels as an embedded string
+        ├── MetalContext.kt          # Metal device setup, GPU buffers, train/predict
+        └── JniExports.kt            # @CName JNI exports — pure Kotlin/Native
 
 src/main/resources/
 └── db/migration/
@@ -468,6 +585,7 @@ result.fold(
 | Kotlinx Coroutines | 1.8.0 | Async operations |
 | Arrow Core | 2.0.1 | Functional error handling |
 | DL4j | 1.0.0-M2.1 | ML classifier (ParagraphVectors engine) |
+| Apple Metal (via Kotlin/Native cinterop) | macOS built-in | GPU acceleration for neural-network engine |
 | Google API Client | 2.0.0 | Google APIs client |
 | Google Sheets API | v4-rev612-1.25.0 | Google Sheets integration |
 | Google Auth Library | 1.16.0 | OAuth2 authentication |

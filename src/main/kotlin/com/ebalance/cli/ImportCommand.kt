@@ -75,6 +75,7 @@ class ImportCommand : CliktCommand(name = "import") {
         val modelLoaded = classifier.loadModel()
         if (modelLoaded) {
             echo("Classifier model loaded:     ${dependencies.modelPath}")
+            readTrainingMeta(dependencies.modelPath)?.let { echo(it) }
         } else {
             echo("Note: No classifier model found at ${dependencies.modelPath}")
             echo("      Run 'train --engine ${selectedEngine.cliName}' to train it first")
@@ -127,5 +128,23 @@ class ImportCommand : CliktCommand(name = "import") {
         is TransactionRepositoryError.ConnectionError -> "Database connection error: ${error.message}"
         is TransactionRepositoryError.InsertError -> "Failed to save transactions: ${error.message}"
         is TransactionRepositoryError.QueryError -> "Database query error: ${error.message}"
+    }
+
+    /**
+     * Reads the training metadata sidecar file (`<modelPath>.meta`) written by [TrainCommand]
+     * and returns a formatted line for display, or null if the file does not exist.
+     */
+    private fun readTrainingMeta(modelPath: String): String? {
+        val metaFile = java.io.File("$modelPath.meta")
+        if (!metaFile.exists()) return null
+        val meta = metaFile.readLines()
+            .filter { '=' in it }
+            .associate { it.substringBefore('=') to it.substringAfter('=') }
+        val backend = when (meta["training.backend"]) {
+            "gpu" -> "Metal GPU (Apple Silicon)"
+            "cpu" -> "CPU"
+            else  -> meta["training.backend"] ?: return null
+        }
+        return "Trained with:                $backend"
     }
 }

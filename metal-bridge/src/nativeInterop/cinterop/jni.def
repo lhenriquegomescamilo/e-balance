@@ -1,0 +1,3 @@
+# JNI types and function-table definitions.
+# compilerOpts (-I paths) are injected by build.gradle.kts at configuration time.
+headers = jni.h
