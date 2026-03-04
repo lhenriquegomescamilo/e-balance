@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.ktor.server.cors)
     implementation(libs.sqlite.jdbc)
+    implementation(libs.flyway.core)
     implementation(libs.arrow.core)
     implementation(libs.arrow.fx.stm)
     testImplementation(libs.ktor.server.test.host)
