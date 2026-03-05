@@ -1,5 +1,7 @@
 package com.ebalance.investments
 
+import com.ebalance.investments.application.GetStockPriceHistoryInteractor
+import com.ebalance.investments.application.GetStockPriceHistoryUseCase
 import com.ebalance.investments.application.*
 import com.ebalance.investments.domain.InvestmentRepository
 import com.ebalance.investments.domain.StockPriceService
@@ -22,5 +24,6 @@ fun investmentModule(dbPath: String, serpApiKey: String) = module {
     single<GetWalletSummaryUseCase>       { GetWalletSummaryInteractor(get()) }
     single<GetWalletHoldingsUseCase>      { GetWalletHoldingsInteractor(get()) }
     single<GetWalletProgressUseCase>      { GetWalletProgressInteractor(get(), get()) }
-    single<UpsertInvestmentAssetUseCase>  { UpsertInvestmentAssetInteractor(get()) }
+    single<UpsertInvestmentAssetUseCase>   { UpsertInvestmentAssetInteractor(get()) }
+    single<GetStockPriceHistoryUseCase>    { GetStockPriceHistoryInteractor(get(), get()) }
 }

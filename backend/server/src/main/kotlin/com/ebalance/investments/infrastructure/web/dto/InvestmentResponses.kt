@@ -73,3 +73,27 @@ data class WalletProgressResponse(
     val months: List<String>,
     val series: List<SectorProgressDto>
 )
+
+// ── /investments/stocks/price-history ────────────────────────────────────────
+
+@Serializable
+data class StockPriceHistoryDto(
+    val ticker: String,
+    val name: String,
+    val exchange: String,
+    val sector: String,
+    val currentPrice: Double,
+    val changePct: Double,
+    val investedAmount: Double,
+    val currentValue: Double,
+    val pnl: Double,
+    val roi: Double,
+    val qty: Double,
+    val months: List<String>,
+    val prices: List<Double>
+)
+
+@Serializable
+data class StockPriceHistoriesResponse(
+    val stocks: List<StockPriceHistoryDto>
+)

@@ -1,5 +1,6 @@
 package com.ebalance
 
+import com.ebalance.investments.application.GetStockPriceHistoryUseCase
 import com.ebalance.investments.application.GetWalletHoldingsUseCase
 import com.ebalance.investments.application.GetWalletProgressUseCase
 import com.ebalance.investments.application.GetWalletSummaryUseCase
@@ -30,6 +31,7 @@ fun Application.configureRouting() {
     val walletHoldingsUseCase: GetWalletHoldingsUseCase by inject()
     val walletProgressUseCase: GetWalletProgressUseCase by inject()
     val upsertAssetUseCase: UpsertInvestmentAssetUseCase by inject()
+    val stockPriceHistoryUseCase: GetStockPriceHistoryUseCase by inject()
 
     routing {
         // Redirect root to the dashboard
@@ -41,7 +43,7 @@ fun Application.configureRouting() {
         // REST API — all endpoints live under /api/v1
         route("/api/v1") {
             transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase, updateCategoryUseCase)
-            investmentRoutes(walletSummaryUseCase, walletHoldingsUseCase, walletProgressUseCase, upsertAssetUseCase)
+            investmentRoutes(walletSummaryUseCase, walletHoldingsUseCase, walletProgressUseCase, upsertAssetUseCase, stockPriceHistoryUseCase)
         }
     }
 }

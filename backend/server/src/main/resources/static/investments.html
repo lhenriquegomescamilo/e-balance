@@ -351,6 +351,74 @@
       </div>
     </div>
 
+    <!-- ── Stock Price Evolution ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6">
+
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h5 class="text-base font-semibold text-gray-800 dark:text-gray-200">Stock Price Evolution</h5>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Monthly close price per holding</p>
+        </div>
+        <!-- Period dropdown -->
+        <div class="relative">
+          <button id="stockPeriodBtn"
+                  data-dropdown-toggle="stockPeriodDropdown"
+                  data-dropdown-placement="bottom"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400
+                         hover:text-gray-800 dark:hover:text-white">
+            <span id="stockPeriodLabel">Last 6 months</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="stockPeriodDropdown"
+               class="z-10 hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg w-44">
+            <ul class="p-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <li><a href="#" onclick="setStockPeriod('3M','Last 3 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 3 months</a></li>
+              <li><a href="#" onclick="setStockPeriod('6M','Last 6 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 6 months</a></li>
+              <li><a href="#" onclick="setStockPeriod('1Y','Last 12 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 12 months</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skeleton cards -->
+      <div id="sk-stock-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hidden sm:block">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hidden lg:block">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+      </div>
+
+      <!-- Real cards grid -->
+      <div id="stock-cards-grid" class="hidden grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+
+    </div>
+
     <!-- ── Holdings Table ── -->
     <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
       <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -535,6 +603,7 @@ function toggleTheme() {
   updateThemeIcons();
   if (_lastSummaryData)  { renderSectorChart(_lastSummaryData.sectors); renderPnlChart(_lastHoldingsData.holdings); }
   if (_lastProgressData) renderProgressChart(_lastProgressData);
+  if (_stockPriceData)   renderStockCards(_stockPriceData.stocks);
 }
 
 function updateThemeIcons() {
@@ -1087,6 +1156,154 @@ async function submitAssetForm(e) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   STOCK PRICE CARDS
+════════════════════════════════════════════════════════════════ */
+let _stockPriceData      = null;
+let currentStockWindow   = '6M';
+const stockChartInstances = {};
+
+function setStockPeriod(window, label) {
+  currentStockWindow = window;
+  document.getElementById('stockPeriodLabel').textContent = label;
+  Object.values(stockChartInstances).forEach(c => c?.destroy());
+  Object.keys(stockChartInstances).forEach(k => delete stockChartInstances[k]);
+  loadStockPriceHistory(window);
+}
+
+async function loadStockPriceHistory(window = '6M') {
+  const skeleton   = document.getElementById('sk-stock-cards');
+  const grid       = document.getElementById('stock-cards-grid');
+
+  skeleton?.classList.remove('hidden');
+  grid?.classList.add('hidden');
+  grid?.classList.remove('grid');
+
+  try {
+    const data = await apiFetch(`${API_BASE}/investments/stocks/price-history?window=${window}`);
+    _stockPriceData = data;
+    renderStockCards(data.stocks);
+    skeleton?.classList.add('hidden');
+    grid?.classList.remove('hidden');
+    grid?.classList.add('grid');
+  } catch (e) {
+    skeleton?.classList.add('hidden');
+    grid?.classList.remove('hidden');
+    grid?.classList.add('grid');
+    grid.innerHTML = '<p class="col-span-full text-center text-sm text-gray-400 py-10">Could not load stock price data.</p>';
+    console.error('Stock price history failed:', e);
+  }
+}
+
+function renderStockCards(stocks) {
+  Object.values(stockChartInstances).forEach(c => c?.destroy());
+  Object.keys(stockChartInstances).forEach(k => delete stockChartInstances[k]);
+
+  const grid = document.getElementById('stock-cards-grid');
+
+  if (!stocks || stocks.length === 0) {
+    grid.innerHTML = '<p class="col-span-full text-center text-sm text-gray-400 py-10">No stock price data available.</p>';
+    return;
+  }
+
+  const fmtPrice = v => v.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtQty   = q => q.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+  grid.innerHTML = stocks.map(s => {
+    const isPricePos = s.changePct >= 0;
+    const isPnlPos   = s.pnl >= 0;
+    const color      = sectorColorMap[s.sector] ?? '#6366f1';
+    const qty        = s.qty;
+    return `
+      <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+
+        <!-- Header: ticker + price change % -->
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold mb-1"
+                  style="background:${color}22; color:${color}; border:1px solid ${color}44">
+              ${s.ticker}
+            </span>
+            <p class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[140px]">${s.name}</p>
+          </div>
+          <div class="flex items-center gap-1 text-xs font-semibold ${isPricePos ? 'text-green-500' : 'text-red-500'}">
+            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="${isPricePos ? 'M12 6v13m0-13 4 4m-4-4-4 4' : 'M12 19V6m0 13-4-4m4 4 4-4'}"/>
+            </svg>
+            ${isPricePos ? '+' : ''}${s.changePct.toFixed(2)}%
+          </div>
+        </div>
+
+        <!-- Current stock price -->
+        <p class="text-xl font-bold text-gray-900 dark:text-white mt-2">€ ${fmtPrice(s.currentPrice)}</p>
+
+        <!-- Sparkline chart -->
+        <div id="stock-chart-${s.ticker}"></div>
+
+        <!-- 2×2 metrics grid -->
+        <div class="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-gray-200 dark:border-gray-700 pt-3 mt-1">
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Invested</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">${fmtEur(s.investedAmount)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Shares</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">${fmtQty(qty)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Current</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">${fmtEur(s.currentValue)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">P&amp;L</p>
+            <p class="text-sm font-semibold ${isPnlPos ? 'text-green-500' : 'text-red-500'}">
+              ${isPnlPos ? '+' : ''}${fmtEur(s.pnl)}
+              <span class="text-xs font-medium">(${isPnlPos ? '+' : ''}${s.roi.toFixed(1)}%)</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">${s.exchange} · ${s.sector}</p>
+      </div>`;
+  }).join('');
+
+  // Render charts after DOM update
+  setTimeout(() => stocks.forEach(s => renderStockChart(s)), 0);
+}
+
+function renderStockChart(stock) {
+  const dark  = html.classList.contains('dark');
+  const isPos = stock.changePct >= 0;
+  const color = isPos ? '#10b981' : '#ef4444';
+  const el    = document.getElementById(`stock-chart-${stock.ticker}`);
+  if (!el) return;
+
+  const chart = new ApexCharts(el, {
+    series: [{ name: stock.ticker, data: stock.prices.map(p => parseFloat(p.toFixed(2))) }],
+    chart: {
+      type: 'area', height: 80, sparkline: { enabled: true },
+      background: 'transparent', toolbar: { show: false }, zoom: { enabled: false },
+      animations: { enabled: true, speed: 400 }
+    },
+    stroke:  { curve: 'smooth', width: 2, colors: [color] },
+    fill: {
+      type: 'gradient',
+      gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.0, stops: [0, 100] }
+    },
+    colors: [color],
+    xaxis:  { categories: stock.months },
+    tooltip: {
+      theme: dark ? 'dark' : 'light', x: { show: true },
+      y: { formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) }
+    },
+    theme: { mode: dark ? 'dark' : 'light' }
+  });
+  chart.render();
+  stockChartInstances[stock.ticker] = chart;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    BOOT
 ════════════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1094,10 +1311,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   showSkeletons();
 
   try {
-    // Load portfolio (summary + holdings) and progress chart in parallel
+    // Load portfolio (summary + holdings), progress chart, and stock price history in parallel
     await Promise.all([
       loadPortfolio(),
-      loadProgress(currentProgressPeriod)
+      loadProgress(currentProgressPeriod),
+      loadStockPriceHistory(currentStockWindow)
     ]);
   } catch (e) {
     showError(`Failed to load portfolio: ${e.message}`);

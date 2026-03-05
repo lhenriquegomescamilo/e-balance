@@ -1,5 +1,6 @@
 package com.ebalance.investments.infrastructure.web
 
+import com.ebalance.investments.application.GetStockPriceHistoryUseCase
 import com.ebalance.investments.application.GetWalletHoldingsUseCase
 import com.ebalance.investments.application.GetWalletProgressUseCase
 import com.ebalance.investments.application.GetWalletSummaryUseCase
@@ -17,15 +18,17 @@ import io.ktor.server.routing.*
  * Registers all investment-related REST endpoints under the calling [Route].
  *
  * Endpoints:
- *   GET /investments/summary           — total stats + sector breakdown
- *   GET /investments/holdings          — individual positions
- *   GET /investments/progress?period=  — monthly sector value (3m | 6m | 12m)
+ *   GET /investments/summary                   — total stats + sector breakdown
+ *   GET /investments/holdings                  — individual positions
+ *   GET /investments/progress?period=          — monthly sector value (3m | 6m | 12m)
+ *   GET /investments/stocks/price-history?window= — per-stock monthly price evolution
  */
 fun Route.investmentRoutes(
     summaryUseCase: GetWalletSummaryUseCase,
     holdingsUseCase: GetWalletHoldingsUseCase,
     progressUseCase: GetWalletProgressUseCase,
-    upsertUseCase: UpsertInvestmentAssetUseCase
+    upsertUseCase: UpsertInvestmentAssetUseCase,
+    stockPriceHistoryUseCase: GetStockPriceHistoryUseCase
 ) {
 
     // ── GET /api/v1/investments/summary ───────────────────────────────────────
@@ -90,6 +93,40 @@ fun Route.investmentRoutes(
                         months = progress.months,
                         series = progress.series.map { s ->
                             SectorProgressDto(sector = s.sector, values = s.values)
+                        }
+                    )
+                )
+            }
+        )
+    }
+
+    // ── GET /api/v1/investments/stocks/price-history?window=6M ───────────────
+    // window: "3M" | "6M" (default) | "1Y"
+    get("/investments/stocks/price-history") {
+        val window = call.request.queryParameters["window"]?.uppercase() ?: "6M"
+        call.application.environment.log.info("GET /investments/stocks/price-history?window=$window")
+        stockPriceHistoryUseCase.execute(window).fold(
+            ifLeft  = { call.respondInvestmentError(it) },
+            ifRight = { histories ->
+                call.respond(
+                    HttpStatusCode.OK,
+                    StockPriceHistoriesResponse(
+                        stocks = histories.map { h ->
+                            StockPriceHistoryDto(
+                                ticker         = h.ticker,
+                                name           = h.name,
+                                exchange       = h.exchange,
+                                sector         = h.sector,
+                                currentPrice   = h.currentPrice,
+                                changePct      = h.changePct,
+                                investedAmount = h.investedAmount,
+                                currentValue   = h.currentValue,
+                                pnl            = h.pnl,
+                                roi            = h.roi,
+                                qty            = h.qty,
+                                months         = h.months,
+                                prices         = h.prices
+                            )
                         }
                     )
                 )
