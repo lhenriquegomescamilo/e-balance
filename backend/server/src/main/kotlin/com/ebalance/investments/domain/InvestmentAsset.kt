@@ -5,6 +5,7 @@ data class InvestmentAsset(
     val ticker: String,
     val name: String,
     val sector: String,
+    val exchange: String,
     val investedAmount: Double,
     val currentValue: Double
 ) {

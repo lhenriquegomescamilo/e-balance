@@ -36,6 +36,7 @@ data class InvestmentAssetDto(
     val ticker: String,
     val name: String,
     val sector: String,
+    val exchange: String,
     val invested: Double,
     val currentValue: Double,
     val pnl: Double,
@@ -54,6 +55,7 @@ data class WalletHoldingsResponse(
 data class UpsertAssetRequest(
     val name: String,
     val sector: String,
+    val exchange: String,
     val investedAmount: Double,
     val currentValue: Double
 )

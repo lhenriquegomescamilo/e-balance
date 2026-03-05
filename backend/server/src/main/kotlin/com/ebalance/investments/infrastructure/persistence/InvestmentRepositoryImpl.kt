@@ -28,7 +28,7 @@ class InvestmentRepositoryImpl(private val dbPath: String) : InvestmentRepositor
             connection().use { conn ->
                 conn.prepareStatement(
                     """
-                    SELECT id, ticker, name, sector, invested_amount, current_value
+                    SELECT id, ticker, name, sector, exchange, invested_amount, current_value
                     FROM   investment_asset
                     ORDER  BY sector, ticker
                     """.trimIndent()
@@ -41,6 +41,7 @@ class InvestmentRepositoryImpl(private val dbPath: String) : InvestmentRepositor
                                 ticker         = rs.getString("ticker"),
                                 name           = rs.getString("name"),
                                 sector         = rs.getString("sector"),
+                                exchange       = rs.getString("exchange") ?: "NASDAQ",
                                 investedAmount = rs.getDouble("invested_amount"),
                                 currentValue   = rs.getDouble("current_value")
                             )
@@ -56,27 +57,29 @@ class InvestmentRepositoryImpl(private val dbPath: String) : InvestmentRepositor
 
     // ── upsertAsset ───────────────────────────────────────────────────────────
     override fun upsertAsset(
-        ticker: String, name: String, sector: String,
+        ticker: String, name: String, sector: String, exchange: String,
         investedAmount: Double, currentValue: Double
     ): Either<InvestmentError.DatabaseError, Unit> =
         runCatching {
             connection().use { conn ->
                 conn.prepareStatement(
                     """
-                    INSERT INTO investment_asset (ticker, name, sector, invested_amount, current_value)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO investment_asset (ticker, name, sector, exchange, invested_amount, current_value)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     ON CONFLICT(ticker) DO UPDATE SET
-                        name           = excluded.name,
-                        sector         = excluded.sector,
+                        name            = excluded.name,
+                        sector          = excluded.sector,
+                        exchange        = excluded.exchange,
                         invested_amount = excluded.invested_amount,
-                        current_value  = excluded.current_value
+                        current_value   = excluded.current_value
                     """.trimIndent()
                 ).use { stmt ->
                     stmt.setString(1, ticker.uppercase())
                     stmt.setString(2, name)
                     stmt.setString(3, sector)
-                    stmt.setDouble(4, investedAmount)
-                    stmt.setDouble(5, currentValue)
+                    stmt.setString(4, exchange.uppercase())
+                    stmt.setDouble(5, investedAmount)
+                    stmt.setDouble(6, currentValue)
                     stmt.executeUpdate()
                 }
             }

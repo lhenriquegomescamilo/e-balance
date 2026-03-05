@@ -41,6 +41,7 @@ fun Route.transactionRoutes(
 
     // ── GET /api/v1/transactions/summary ─────────────────────────────────────
     get("/transactions/summary") {
+        call.application.environment.log.info("GET /transactions/summary params=${call.request.queryString()}")
         either {
             val filter = parseFilter(call.request).bind()
             filter to summaryUseCase.execute(filter).bind()
@@ -81,6 +82,7 @@ fun Route.transactionRoutes(
 
     // ── GET /api/v1/transactions ─────────────────────────────────────────────
     get("/transactions") {
+        call.application.environment.log.info("GET /transactions params=${call.request.queryString()}")
         either {
             val filter = parseFilter(call.request).bind()
             transactionsUseCase.execute(filter).bind()
@@ -119,6 +121,7 @@ fun Route.transactionRoutes(
     // can toggle the view without an extra round-trip.
     // Missing months for a given category are zero-filled.
     get("/transactions/monthly-by-category") {
+        call.application.environment.log.info("GET /transactions/monthly-by-category params=${call.request.queryString()}")
         either {
             val filter = parseFilter(call.request).bind()
             filter to monthlySummaryUseCase.execute(filter).bind()
@@ -156,6 +159,7 @@ fun Route.transactionRoutes(
 
     // ── PATCH /api/v1/transactions/{id}/category ─────────────────────────────
     patch("/transactions/{id}/category") {
+        call.application.environment.log.info("PATCH /transactions/${call.parameters["id"]}/category")
         either {
             val transactionId = call.parameters["id"]?.toLongOrNull()
                 ?: raise(TransactionError.InvalidParameter("Transaction ID must be a number"))
@@ -181,6 +185,7 @@ fun Route.transactionRoutes(
     // Optional query param: ids=1,2,3  — returns only the matching categories.
     // Omitting ids (or ids=) returns all categories.
     get("/categories") {
+        call.application.environment.log.info("GET /categories")
         either {
             val ids = call.request.queryParameters["ids"]
                 ?.split(",")?.filter { it.isNotBlank() }
@@ -206,14 +211,20 @@ fun Route.transactionRoutes(
 // Helper — maps a TransactionError to the appropriate HTTP response (DRY)
 // ─────────────────────────────────────────────────────────────────────────────
 private suspend fun ApplicationCall.respondError(error: TransactionError) = when (error) {
-    is TransactionError.InvalidDate      -> respond(HttpStatusCode.BadRequest,
-        ErrorResponse("INVALID_DATE", error.message))
-    is TransactionError.InvalidParameter -> respond(HttpStatusCode.BadRequest,
-        ErrorResponse("INVALID_PARAMETER", error.message))
-    is TransactionError.NotFound         -> respond(HttpStatusCode.NotFound,
-        ErrorResponse("NOT_FOUND", error.message))
+    is TransactionError.InvalidDate      -> {
+        application.environment.log.warn("Transaction invalid date: ${error.message}")
+        respond(HttpStatusCode.BadRequest, ErrorResponse("INVALID_DATE", error.message))
+    }
+    is TransactionError.InvalidParameter -> {
+        application.environment.log.warn("Transaction invalid parameter: ${error.message}")
+        respond(HttpStatusCode.BadRequest, ErrorResponse("INVALID_PARAMETER", error.message))
+    }
+    is TransactionError.NotFound         -> {
+        application.environment.log.warn("Transaction not found: ${error.message}")
+        respond(HttpStatusCode.NotFound, ErrorResponse("NOT_FOUND", error.message))
+    }
     is TransactionError.DatabaseError    -> {
-        application.environment.log.error("Database error", error.cause)
+        application.environment.log.error("Transaction database error: ${error.message}", error.cause)
         respond(HttpStatusCode.InternalServerError,
             ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
     }

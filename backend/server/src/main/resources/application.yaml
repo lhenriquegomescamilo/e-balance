@@ -10,3 +10,8 @@ ktor:
 # two levels up to reach the project root where e-balance.db lives.
 database:
     path: "../../e-balance.db"
+
+# SerpAPI key used to fetch live stock price history via Google Finance.
+# Get your key at https://serpapi.com/
+serpapi:
+    apiKey: ""

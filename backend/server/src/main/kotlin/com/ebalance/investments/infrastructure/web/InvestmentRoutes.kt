@@ -30,6 +30,7 @@ fun Route.investmentRoutes(
 
     // ── GET /api/v1/investments/summary ───────────────────────────────────────
     get("/investments/summary") {
+        call.application.environment.log.info("GET /investments/summary")
         summaryUseCase.execute().fold(
             ifLeft  = { call.respondInvestmentError(it) },
             ifRight = { summary ->
@@ -60,6 +61,7 @@ fun Route.investmentRoutes(
 
     // ── GET /api/v1/investments/holdings ──────────────────────────────────────
     get("/investments/holdings") {
+        call.application.environment.log.info("GET /investments/holdings")
         holdingsUseCase.execute().fold(
             ifLeft  = { call.respondInvestmentError(it) },
             ifRight = { assets ->
@@ -78,6 +80,7 @@ fun Route.investmentRoutes(
     // period: "3m" | "6m" (default) | "12m"
     get("/investments/progress") {
         val period = call.request.queryParameters["period"]?.lowercase() ?: "6m"
+        call.application.environment.log.info("GET /investments/progress?period=$period")
         progressUseCase.execute(period).fold(
             ifLeft  = { call.respondInvestmentError(it) },
             ifRight = { progress ->
@@ -101,8 +104,9 @@ fun Route.investmentRoutes(
                 HttpStatusCode.BadRequest,
                 mapOf("error" to "INVALID_PARAMETER", "message" to "Missing ticker")
             )
+        call.application.environment.log.info("PUT /investments/assets/$ticker")
         val body = call.receive<UpsertAssetRequest>()
-        upsertUseCase.execute(ticker, body.name, body.sector, body.investedAmount, body.currentValue).fold(
+        upsertUseCase.execute(ticker, body.name, body.sector, body.exchange, body.investedAmount, body.currentValue).fold(
             ifLeft  = { call.respondInvestmentError(it) },
             ifRight = { call.respond(HttpStatusCode.OK, mapOf("ticker" to ticker, "message" to "Saved")) }
         )
@@ -115,6 +119,7 @@ private fun InvestmentAsset.toDto() = InvestmentAssetDto(
     ticker       = ticker,
     name         = name,
     sector       = sector,
+    exchange     = exchange,
     invested     = investedAmount,
     currentValue = currentValue,
     pnl          = pnl,
@@ -131,10 +136,14 @@ private suspend fun ApplicationCall.respondInvestmentError(error: InvestmentErro
                 mapOf("error" to "INTERNAL_ERROR", "message" to "An unexpected error occurred")
             )
         }
-        is InvestmentError.NotFound         ->
+        is InvestmentError.NotFound         -> {
+            application.environment.log.warn("Investment not found: ${error.message}")
             respond(HttpStatusCode.NotFound,
                 mapOf("error" to "NOT_FOUND", "message" to error.message))
-        is InvestmentError.InvalidParameter ->
+        }
+        is InvestmentError.InvalidParameter -> {
+            application.environment.log.warn("Investment invalid parameter: ${error.message}")
             respond(HttpStatusCode.BadRequest,
                 mapOf("error" to "INVALID_PARAMETER", "message" to error.message))
+        }
     }

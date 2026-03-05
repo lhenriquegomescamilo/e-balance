@@ -217,7 +217,18 @@
         <div id="sector-checkboxes" class="hidden flex-wrap gap-x-4 gap-y-2 mb-2"></div>
 
         <!-- Skeleton donut -->
-        <div id="sk-sector-chart" class="h-64 sk mb-4"></div>
+        <div id="sk-sector-chart" role="status" class="animate-pulse flex flex-col items-center gap-4 py-4 mb-4">
+          <div class="relative w-48 h-48">
+            <div class="w-48 h-48 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+            <div class="absolute inset-10 rounded-full bg-white dark:bg-gray-900"></div>
+          </div>
+          <div class="flex gap-3">
+            <div class="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+            <div class="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+            <div class="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+          </div>
+          <span class="sr-only">Loading...</span>
+        </div>
         <!-- Real chart -->
         <div id="sector-donut-chart" class="hidden py-4 flex justify-center"></div>
 
@@ -248,7 +259,18 @@
         </div>
 
         <!-- Skeleton chart -->
-        <div id="sk-pnl-chart" class="h-72 sk my-4"></div>
+        <div id="sk-pnl-chart" role="status" class="animate-pulse my-4">
+          <div class="flex items-end gap-1.5 h-64 px-2">
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:80%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:100%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:55%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:90%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:65%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:75%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:45%"></div>
+          </div>
+          <span class="sr-only">Loading...</span>
+        </div>
         <!-- Real chart -->
         <div id="pnl-bar-chart" class="hidden py-4 md:py-6"></div>
 
@@ -279,7 +301,18 @@
       </div>
 
       <!-- Skeleton chart -->
-      <div id="sk-progress-chart" class="h-72 sk my-4 md:my-6"></div>
+      <div id="sk-progress-chart" role="status" class="animate-pulse my-4 md:my-6">
+        <div class="flex items-end gap-2 h-64 px-2">
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:55%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:70%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:45%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:80%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:65%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:90%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:72%"></div>
+        </div>
+        <span class="sr-only">Loading...</span>
+      </div>
       <!-- Real chart -->
       <div id="wallet-progress-chart" class="hidden py-4 md:py-6"></div>
 
@@ -397,15 +430,33 @@
                       focus:outline-none focus:ring-2 focus:ring-brand-500" />
       </div>
 
-      <!-- Sector -->
-      <div>
-        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Sector <span class="text-red-500">*</span></label>
-        <input id="f-sector" type="text" required maxlength="60" placeholder="e.g. Technology"
-               list="sector-suggestions"
-               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
-                      bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
-                      focus:outline-none focus:ring-2 focus:ring-brand-500" />
-        <datalist id="sector-suggestions"></datalist>
+      <!-- Sector + Exchange row -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Sector <span class="text-red-500">*</span></label>
+          <input id="f-sector" type="text" required maxlength="60" placeholder="e.g. Technology"
+                 list="sector-suggestions"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                        bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                        focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          <datalist id="sector-suggestions"></datalist>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Exchange <span class="text-red-500">*</span></label>
+          <input id="f-exchange" type="text" required maxlength="20" placeholder="e.g. NASDAQ"
+                 list="exchange-suggestions"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                        bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                        focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase" />
+          <datalist id="exchange-suggestions">
+            <option value="NASDAQ">
+            <option value="NYSE">
+            <option value="EURONEXT">
+            <option value="XETRA">
+            <option value="LSE">
+            <option value="BMV">
+          </datalist>
+        </div>
       </div>
 
       <!-- Amounts row -->
@@ -916,12 +967,32 @@ async function loadPortfolio() {
 }
 
 async function loadProgress(period = '6m') {
+  const skChart  = document.getElementById('sk-progress-chart');
+  const skHeader = document.getElementById('sk-progress-header');
+  const chart    = document.getElementById('wallet-progress-chart');
+  const total    = document.getElementById('progress-total');
+  const badge    = document.getElementById('progress-badge');
+
+  // Show skeleton, hide real content
+  skChart?.classList.remove('hidden');
+  skHeader?.classList.remove('hidden');
+  chart?.classList.add('hidden');
+  total?.classList.add('hidden');
+  badge?.classList.add('hidden');
+
   try {
     const data = await apiFetch(`${API_BASE}/investments/progress?period=${period}`);
     renderProgressChart(data);
+    skChart?.classList.add('hidden');
+    skHeader?.classList.add('hidden');
+    chart?.classList.remove('hidden');
+    total?.classList.remove('hidden');
+    badge?.classList.remove('hidden');
   } catch (e) {
-    document.getElementById('wallet-progress-chart').innerHTML =
-      '<p class="text-center text-sm text-gray-400 py-10">Could not load progress data.</p>';
+    skChart?.classList.add('hidden');
+    skHeader?.classList.add('hidden');
+    chart?.classList.remove('hidden');
+    chart.innerHTML = '<p class="text-center text-sm text-gray-400 py-10">Could not load progress data.</p>';
     console.error('Progress chart failed:', e);
   }
 }
@@ -948,12 +1019,14 @@ function openAssetDialog(holding = null) {
     document.getElementById('f-ticker').classList.add('opacity-60', 'cursor-not-allowed');
     document.getElementById('f-name').value     = holding.name;
     document.getElementById('f-sector').value   = holding.sector;
+    document.getElementById('f-exchange').value = holding.exchange || 'NASDAQ';
     document.getElementById('f-invested').value = holding.invested;
     document.getElementById('f-current').value  = holding.currentValue;
   } else {
     document.getElementById('asset-form').reset();
     document.getElementById('f-ticker').readOnly = false;
     document.getElementById('f-ticker').classList.remove('opacity-60', 'cursor-not-allowed');
+    document.getElementById('f-exchange').value = 'NASDAQ';
   }
 
   document.getElementById('asset-dialog-backdrop').classList.remove('hidden');
@@ -971,6 +1044,7 @@ async function submitAssetForm(e) {
   const ticker   = document.getElementById('f-ticker').value.trim().toUpperCase();
   const name     = document.getElementById('f-name').value.trim();
   const sector   = document.getElementById('f-sector').value.trim();
+  const exchange = document.getElementById('f-exchange').value.trim().toUpperCase();
   const invested = parseFloat(document.getElementById('f-invested').value) || 0;
   const current  = parseFloat(document.getElementById('f-current').value) || 0;
 
@@ -986,7 +1060,7 @@ async function submitAssetForm(e) {
     const res = await fetch(`${API_BASE}/investments/assets/${encodeURIComponent(ticker)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, sector, investedAmount: invested, currentValue: current })
+      body: JSON.stringify({ name, sector, exchange, investedAmount: invested, currentValue: current })
     });
 
     if (!res.ok) {
