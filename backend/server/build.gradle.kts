@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.arrow.core)
     implementation(libs.arrow.fx.stm)
+    implementation(libs.caffeine)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotest.runner.junit5)
