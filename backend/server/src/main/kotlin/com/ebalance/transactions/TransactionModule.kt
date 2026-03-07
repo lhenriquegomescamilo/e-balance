@@ -6,20 +6,21 @@ import com.ebalance.transactions.domain.TransactionRepository
 import com.ebalance.transactions.infrastructure.persistence.TransactionRepositoryImpl
 import kotlinx.coroutines.runBlocking
 import org.koin.dsl.module
+import javax.sql.DataSource
 
 /**
  * Koin module wiring for the transactions feature.
  *
- * Bindings (all singletons — repository opens a new JDBC connection per call):
- *   TransactionRepository                → TransactionRepositoryImpl(dbPath)
+ * Bindings (all singletons — repository borrows a connection from HikariCP pool per call):
+ *   TransactionRepository                → TransactionRepositoryImpl(dataSource)
  *   GetTransactionSummaryUseCase         → GetTransactionSummaryInteractor
  *   GetTransactionsUseCase               → GetTransactionsInteractor
  *   GetCategoriesUseCase                 → GetCategoriesInteractor
  *   GetMonthlySummaryUseCase             → GetMonthlySummaryInteractor
  *   UpdateTransactionCategoryUseCase     → UpdateTransactionCategoryInteractor
  */
-fun transactionModule(dbPath: String) = module {
-    single<TransactionRepository>                { TransactionRepositoryImpl(dbPath) }
+fun transactionModule(dataSource: DataSource) = module {
+    single<TransactionRepository>                { TransactionRepositoryImpl(dataSource) }
     single<GetTransactionSummaryUseCase>         { GetTransactionSummaryInteractor(get()) }
     single<GetTransactionsUseCase>               { GetTransactionsInteractor(get()) }
     single<GetCategoriesUseCase>                 { GetCategoriesInteractor(get()) }

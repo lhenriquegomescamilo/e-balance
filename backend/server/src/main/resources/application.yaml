@@ -5,11 +5,10 @@ ktor:
     deployment:
         port: 8080
 
-# Path to the SQLite database file, relative to the JVM working directory.
-# Gradle's :server:run task sets workingDir = backend/server/, so we need
-# two levels up to reach the project root where e-balance.db lives.
 database:
-    path: "../../e-balance.db"
+    url: "jdbc:postgresql://localhost:5432/ebalance"
+    username: "ebalance"
+    password: "ebalance"
 
 # SerpAPI key used to fetch live stock price history via Google Finance.
 # Get your key at https://serpapi.com/

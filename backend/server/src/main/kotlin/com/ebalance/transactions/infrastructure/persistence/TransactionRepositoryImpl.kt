@@ -5,23 +5,23 @@ import arrow.core.left
 import arrow.core.right
 import com.ebalance.transactions.domain.*
 import java.math.BigDecimal
-import java.sql.DriverManager
 import java.sql.PreparedStatement
 import java.time.LocalDate
+import javax.sql.DataSource
 
 /**
- * SQLite adapter implementing [TransactionRepository].
+ * PostgreSQL adapter implementing [TransactionRepository].
  *
  * All filtering is pushed down to the database via parameterised SQL — no in-memory filtering.
- * A new connection is opened per call (acceptable for a local SQLite file with low concurrency).
+ * Connections are borrowed from a shared HikariCP pool.
  *
  * Schema reference:
- *   transactions(id, operated_at TEXT, description TEXT, value REAL, balance REAL, category_id INT)
+ *   transactions(id, operated_at TEXT, description TEXT, value DOUBLE PRECISION, balance DOUBLE PRECISION, category_id INT)
  *   category(id INT, name TEXT, enum_name TEXT)
  */
-class TransactionRepositoryImpl(private val dbPath: String) : TransactionRepository {
+class TransactionRepositoryImpl(private val dataSource: DataSource) : TransactionRepository {
 
-    private fun connection() = DriverManager.getConnection("jdbc:sqlite:$dbPath")
+    private fun connection() = dataSource.connection
 
     // ─────────────────────────────────────────────────────────────────────────
     // getSummary — groups by category, aggregates income/expense totals
@@ -254,7 +254,7 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
 
             val sql = """
                 SELECT
-                    strftime('%Y-%m', t.operated_at)                             AS month_year,
+                    TO_CHAR(t.operated_at::date, 'YYYY-MM')                      AS month_year,
                     t.category_id,
                     COALESCE(c.name, 'Desconhecida')                             AS category_name,
                     SUM(CASE WHEN t.value > 0 THEN t.value       ELSE 0 END)    AS total_income,

@@ -4,23 +4,23 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import com.ebalance.investments.domain.*
-import java.sql.DriverManager
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import javax.sql.DataSource
 
 /**
- * SQLite adapter implementing [InvestmentRepository].
+ * PostgreSQL adapter implementing [InvestmentRepository].
  *
  * Schema:
  *   investment_asset(id, ticker, name, sector, invested_amount, current_value, ...)
  *   investment_sector_snapshot(id, sector_name, month_year TEXT 'YYYY-MM', total_value)
  *
- * A new connection is opened per call (same pattern as TransactionRepositoryImpl).
+ * Connections are borrowed from a shared HikariCP pool.
  */
-class InvestmentRepositoryImpl(private val dbPath: String) : InvestmentRepository {
+class InvestmentRepositoryImpl(private val dataSource: DataSource) : InvestmentRepository {
 
-    private fun connection() = DriverManager.getConnection("jdbc:sqlite:$dbPath")
+    private fun connection() = dataSource.connection
 
     // ── getAssets ─────────────────────────────────────────────────────────────
     override fun getAssets(): Either<InvestmentError.DatabaseError, List<InvestmentAsset>> =

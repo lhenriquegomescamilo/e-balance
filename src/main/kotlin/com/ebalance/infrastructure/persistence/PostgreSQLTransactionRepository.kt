@@ -10,20 +10,15 @@ import com.ebalance.domain.model.Transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.sql.Connection
-import java.sql.DriverManager
+import javax.sql.DataSource
 
-/**
- * SQLite implementation of TransactionRepository.
- * Uses raw JDBC for simplicity with SQLite.
- * Returns Either for all operations to handle errors functionally.
- */
-class SQLiteTransactionRepository(
-    private val dbPath: String,
+class PostgreSQLTransactionRepository(
+    private val dataSource: DataSource,
     private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO
 ) : TransactionRepository {
 
-    private fun connection(): Either<TransactionRepositoryError.ConnectionError, Connection> = 
-        runCatching { DriverManager.getConnection("jdbc:sqlite:$dbPath") }
+    private fun connection(): Either<TransactionRepositoryError.ConnectionError, Connection> =
+        runCatching { dataSource.connection }
             .fold(
                 onSuccess = { it.right() },
                 onFailure = { e ->
@@ -34,62 +29,63 @@ class SQLiteTransactionRepository(
                 }
             )
 
-    override suspend fun save(transaction: Transaction): Either<TransactionRepositoryError, Boolean> = 
+    override suspend fun save(transaction: Transaction): Either<TransactionRepositoryError, Boolean> =
         withContext(ioDispatcher) {
             either {
                 val conn = connection().bind()
-                
+
                 conn.use {
                     val sql = """
-                        INSERT OR IGNORE INTO transactions (operated_at, description, value, balance, category_id)
+                        INSERT INTO transactions (operated_at, description, value, balance, category_id)
                         VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT (operated_at, description, value) DO NOTHING
                     """.trimIndent()
-                    
+
                     executeInsert(it, sql, transaction).bind()
                 }
             }
         }
 
-    override suspend fun saveAll(transactions: List<Transaction>): Either<TransactionRepositoryError, TransactionRepository.SaveResult> = 
+    override suspend fun saveAll(transactions: List<Transaction>): Either<TransactionRepositoryError, TransactionRepository.SaveResult> =
         withContext(ioDispatcher) {
             if (transactions.isEmpty()) {
                 return@withContext TransactionRepository.SaveResult(0, 0).right()
             }
-            
+
             either {
                 val conn = connection().bind()
-                
+
                 conn.use {
                     executeBatchInsert(it, transactions).bind()
                 }
             }
         }
 
-    override suspend fun count(): Either<TransactionRepositoryError, Long> = 
+    override suspend fun count(): Either<TransactionRepositoryError, Long> =
         withContext(ioDispatcher) {
             either {
                 val conn = connection().bind()
-                
+
                 conn.use { executeCount(it).bind() }
             }
         }
 
-    override suspend fun findAll(): Either<TransactionRepositoryError, List<Transaction>> = 
+    override suspend fun findAll(): Either<TransactionRepositoryError, List<Transaction>> =
         withContext(ioDispatcher) {
             either {
                 val conn = connection().bind()
-                
+
                 conn.use { executeFindAll(it).bind() }
             }
         }
-    
+
     // --- Helper functions using runCatching + fold ---
-    
+
     private fun executeInsert(
         conn: Connection,
         sql: String,
         transaction: Transaction
-    ): Either<TransactionRepositoryError.InsertError, Boolean> = 
+    ): Either<TransactionRepositoryError.InsertError, Boolean> =
         runCatching {
             conn.prepareStatement(sql).use { stmt ->
                 stmt.setString(1, transaction.operatedAt.toString())
@@ -97,7 +93,7 @@ class SQLiteTransactionRepository(
                 stmt.setBigDecimal(3, transaction.value)
                 stmt.setBigDecimal(4, transaction.balance)
                 stmt.setLong(5, transaction.categoryId)
-                
+
                 stmt.executeUpdate() > 0
             }
         }.fold(
@@ -109,19 +105,20 @@ class SQLiteTransactionRepository(
                 ).left()
             }
         )
-    
+
     private fun executeBatchInsert(
         conn: Connection,
         transactions: List<Transaction>
-    ): Either<TransactionRepositoryError.InsertError, TransactionRepository.SaveResult> = 
+    ): Either<TransactionRepositoryError.InsertError, TransactionRepository.SaveResult> =
         runCatching {
             conn.autoCommit = false
-            
+
             val sql = """
-                INSERT OR IGNORE INTO transactions (operated_at, description, value, balance, category_id)
+                INSERT INTO transactions (operated_at, description, value, balance, category_id)
                 VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (operated_at, description, value) DO NOTHING
             """.trimIndent()
-            
+
             val insertedCount = conn.prepareStatement(sql).use { stmt ->
                 transactions.sumOf { transaction ->
                     stmt.setString(1, transaction.operatedAt.toString())
@@ -132,7 +129,7 @@ class SQLiteTransactionRepository(
                     stmt.executeUpdate()
                 }
             }
-            
+
             conn.commit()
             TransactionRepository.SaveResult(
                 inserted = insertedCount,
@@ -148,8 +145,8 @@ class SQLiteTransactionRepository(
                 ).left()
             }
         )
-    
-    private fun executeCount(conn: Connection): Either<TransactionRepositoryError.QueryError, Long> = 
+
+    private fun executeCount(conn: Connection): Either<TransactionRepositoryError.QueryError, Long> =
         runCatching {
             conn.prepareStatement("SELECT COUNT(*) FROM transactions").use { stmt ->
                 stmt.executeQuery().use { rs ->
@@ -165,14 +162,13 @@ class SQLiteTransactionRepository(
                 ).left()
             }
         )
-    
-    private fun executeFindAll(conn: Connection): Either<TransactionRepositoryError.QueryError, List<Transaction>> = 
+
+    private fun executeFindAll(conn: Connection): Either<TransactionRepositoryError.QueryError, List<Transaction>> =
         runCatching {
             conn.prepareStatement(
                 "SELECT operated_at, description, value, balance, category_id FROM transactions ORDER BY operated_at DESC"
             ).use { stmt ->
                 stmt.executeQuery().use { rs ->
-                    // Use generateSequence to lazily iterate over ResultSet
                     generateSequence { if (rs.next()) rs else null }
                         .map { resultSet ->
                             Transaction(

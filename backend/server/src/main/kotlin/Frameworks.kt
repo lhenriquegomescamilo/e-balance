@@ -2,6 +2,8 @@ package com.ebalance
 
 import com.ebalance.investments.investmentModule
 import com.ebalance.transactions.transactionModule
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import kotlinx.rpc.krpc.ktor.server.Krpc
@@ -52,13 +54,21 @@ fun Application.configureFrameworks() {
         environment.log.info("No .env file found — relying on system environment and application.yaml")
     }
 
-    // Read the DB path from application.yaml; fall back to relative path for local dev.
-    // Gradle :server:run sets workingDir = backend/server/, so the default is ../../e-balance.db
-    val dbPath = environment.config.propertyOrNull("database.path")?.getString()
-        ?: "../../e-balance.db"
+    // PostgreSQL connection config: .env > system env > application.yaml
+    val dbUrl = dotEnv["DATABASE_URL"]
+        ?: System.getenv("DATABASE_URL")
+        ?: environment.config.propertyOrNull("database.url")?.getString()
+        ?: "jdbc:postgresql://localhost:5432/ebalance"
+    val dbUsername = dotEnv["DATABASE_USERNAME"]
+        ?: System.getenv("DATABASE_USERNAME")
+        ?: environment.config.propertyOrNull("database.username")?.getString()
+        ?: "ebalance"
+    val dbPassword = dotEnv["DATABASE_PASSWORD"]
+        ?: System.getenv("DATABASE_PASSWORD")
+        ?: environment.config.propertyOrNull("database.password")?.getString()
+        ?: "ebalance"
 
-    val resolvedPath = java.io.File(dbPath).canonicalPath
-    environment.log.info("Database path → $resolvedPath (exists: ${java.io.File(resolvedPath).exists()})")
+    environment.log.info("Database URL → $dbUrl")
 
     // SerpAPI key: .env > system env > application.yaml
     val serpApiKey = dotEnv["SERPAPI_API_KEY"]
@@ -67,15 +77,21 @@ fun Application.configureFrameworks() {
         ?: ""
     if (serpApiKey.isBlank()) environment.log.warn("serpapi.apiKey is not configured — portfolio progress chart will be empty")
 
-    // Run Flyway migrations before any connection pool or use-case is wired up.
-    // Migrations live in the root project's src/main/resources/db/migration directory.
-    val migrationsPath = java.io.File(resolvedPath).parentFile
-        .resolve("src/main/resources/db/migration")
-        .canonicalPath
-    environment.log.info("Running Flyway migrations from: $migrationsPath")
+    // Create shared HikariCP connection pool
+    val dataSource = HikariDataSource(HikariConfig().apply {
+        jdbcUrl = dbUrl
+        username = dbUsername
+        password = dbPassword
+        driverClassName = "org.postgresql.Driver"
+        maximumPoolSize = 10
+        minimumIdle = 2
+    })
+
+    // Run Flyway migrations using classpath migrations
+    environment.log.info("Running Flyway migrations from classpath:db/migration")
     Flyway.configure()
-        .dataSource("jdbc:sqlite:$resolvedPath", null, null)
-        .locations("filesystem:$migrationsPath")
+        .dataSource(dataSource)
+        .locations("classpath:db/migration")
         .load()
         .migrate()
 
@@ -89,8 +105,8 @@ fun Application.configureFrameworks() {
                     }
                 }
             },
-            transactionModule(dbPath),
-            investmentModule(dbPath, serpApiKey)
+            transactionModule(dataSource),
+            investmentModule(dataSource, serpApiKey)
         )
     }
 

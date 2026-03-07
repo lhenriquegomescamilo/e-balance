@@ -48,11 +48,13 @@ dependencies {
     implementation("org.apache.poi:poi:5.5.1")
     implementation("org.apache.poi:poi-scratchpad:5.5.1")
 
-    // SQLite
-    implementation("org.xerial:sqlite-jdbc:3.45.2.0")
+    // PostgreSQL
+    implementation("org.postgresql:postgresql:42.7.3")
+    implementation("com.zaxxer:HikariCP:5.1.0")
 
     // Flyway for database migrations
     implementation("org.flywaydb:flyway-core:10.10.0")
+    implementation("org.flywaydb:flyway-database-postgresql:10.10.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
@@ -69,6 +71,8 @@ dependencies {
     testImplementation(libs.kotestRunnerJunit5)
     testImplementation(libs.kotestAssertionsArrow)
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+    testImplementation(libs.testcontainersPostgresql)
+    testImplementation(libs.testcontainersJunit)
 
 }
 
