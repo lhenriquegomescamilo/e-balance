@@ -6,6 +6,7 @@ import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.application.ImportTransactionsUseCase
 import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.domain.CategoryEntry
 import com.ebalance.transactions.domain.CategorySummary
@@ -50,7 +51,8 @@ private fun Application.configureTestRoutes(
     transactionsUseCase: GetTransactionsUseCase,
     categoriesUseCase: GetCategoriesUseCase,
     monthlySummaryUseCase: GetMonthlySummaryUseCase,
-    updateCategoryUseCase: UpdateTransactionCategoryUseCase
+    updateCategoryUseCase: UpdateTransactionCategoryUseCase,
+    importUseCase: ImportTransactionsUseCase = mockk()
 ) {
     install(ServerContentNegotiation) { json() }
     routing {
@@ -60,7 +62,8 @@ private fun Application.configureTestRoutes(
                 transactionsUseCase,
                 categoriesUseCase,
                 monthlySummaryUseCase,
-                updateCategoryUseCase
+                updateCategoryUseCase,
+                importUseCase
             )
         }
     }

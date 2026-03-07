@@ -10,6 +10,10 @@ database:
     username: "ebalance"
     password: "ebalance"
 
+# Path to the neural network model file produced by `./e-balance train --engine neural-network`
+classifier:
+    modelPath: "../nn-model.bin"
+
 # SerpAPI key used to fetch live stock price history via Google Finance.
 # Get your key at https://serpapi.com/
 serpapi:

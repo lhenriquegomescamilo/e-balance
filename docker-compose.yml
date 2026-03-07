@@ -9,6 +9,29 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ebalance -d ebalance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/ebalance
+      DATABASE_USERNAME: ebalance
+      DATABASE_PASSWORD: ebalance
+      CLASSIFIER_MODEL_PATH: /app/nn-model.bin
+    volumes:
+      - ./nn-model.bin:/app/nn-model.bin:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

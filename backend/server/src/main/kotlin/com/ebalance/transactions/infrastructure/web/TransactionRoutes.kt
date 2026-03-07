@@ -8,35 +8,30 @@ import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.application.ImportTransactionsUseCase
 import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.domain.TransactionError
 import com.ebalance.transactions.domain.TransactionFilter
 import com.ebalance.transactions.domain.TransactionType
 import com.ebalance.transactions.infrastructure.web.dto.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.utils.io.toByteArray
+import java.io.ByteArrayInputStream
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
-/**
- * Registers all transaction-related REST endpoints under the calling [Route].
- *
- * Endpoints:
- *   GET   /transactions/summary               — aggregated stats + category breakdown (Donut chart)
- *   GET   /transactions/monthly-by-category   — monthly trend per category (area/bar chart)
- *   GET   /transactions                       — paginated list of individual transactions (table)
- *   PATCH /transactions/{id}/category         — update the category of a single transaction
- *   GET   /categories                         — all categories (filter dropdown)
- */
 fun Route.transactionRoutes(
     summaryUseCase: GetTransactionSummaryUseCase,
     transactionsUseCase: GetTransactionsUseCase,
     categoriesUseCase: GetCategoriesUseCase,
     monthlySummaryUseCase: GetMonthlySummaryUseCase,
-    updateCategoryUseCase: UpdateTransactionCategoryUseCase
+    updateCategoryUseCase: UpdateTransactionCategoryUseCase,
+    importUseCase: ImportTransactionsUseCase
 ) {
 
     // ── GET /api/v1/transactions/summary ─────────────────────────────────────
@@ -204,6 +199,55 @@ fun Route.transactionRoutes(
                 )
             }
         )
+    }
+
+    // ── POST /api/v1/transactions/import ─────────────────────────────────────
+    // Accepts a multipart XLS file upload, classifies transactions with the
+    // neural-network model, saves to DB, and streams SSE progress events.
+    post("/transactions/import") {
+        call.application.environment.log.info("POST /transactions/import")
+
+        val multipart = call.receiveMultipart()
+        var fileBytes: ByteArray? = null
+        multipart.forEachPart { part ->
+            if (part is PartData.FileItem) {
+                fileBytes = part.provider().toByteArray()
+            }
+            part.dispose()
+        }
+
+        val bytes = fileBytes ?: run {
+            call.respond(HttpStatusCode.BadRequest, ErrorResponse("INVALID_PARAMETER", "No file provided"))
+            return@post
+        }
+        call.respondTextWriter(contentType = ContentType.Text.EventStream, status = HttpStatusCode.OK) {
+            fun emit(json: String) {
+                write("data: $json\n\n")
+                flush()
+            }
+            try {
+                importUseCase.execute(ByteArrayInputStream(bytes)) { stage ->
+                    when (stage) {
+                        is ImportTransactionsUseCase.Stage.Reading ->
+                            emit("""{"stage":"reading","message":"Reading Excel file..."}""")
+                        is ImportTransactionsUseCase.Stage.Classifying ->
+                            emit("""{"stage":"classifying","message":"Classifying ${stage.total} transactions...","total":${stage.total}}""")
+                        is ImportTransactionsUseCase.Stage.Saving ->
+                            emit("""{"stage":"saving","message":"Saving to database..."}""")
+                        is ImportTransactionsUseCase.Stage.Complete -> {
+                            val r = stage.result
+                            emit("""{"stage":"complete","totalRead":${r.totalRead},"inserted":${r.inserted},"duplicates":${r.duplicates},"classified":${r.classified}}""")
+                        }
+                        is ImportTransactionsUseCase.Stage.Failed ->
+                            emit("""{"stage":"error","message":"${stage.message.replace("\"", "'")}"}""")
+                    }
+                }
+            } catch (e: Exception) {
+                runCatching {
+                    emit("""{"stage":"error","message":"${e.message?.replace("\"", "'") ?: "Import failed"}"}""")
+                }
+            }
+        }
     }
 }
 

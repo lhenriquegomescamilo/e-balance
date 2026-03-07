@@ -1,10 +1,10 @@
 # E-Balance Development Skill
 
-A specialized skill for developing and maintaining the E-Balance CLI application - a Kotlin-based transaction import tool built with Clean Architecture and functional error handling.
+A specialized skill for developing and maintaining the E-Balance system — a Kotlin-based transaction import tool (CLI + Ktor REST API) built with Clean Architecture and functional error handling.
 
 ## Overview
 
-E-Balance is a CLI tool that imports bank transactions from Excel files into SQLite database. It demonstrates production-grade Kotlin development with:
+E-Balance is a CLI tool + Ktor REST API that imports bank transactions from Excel files into **PostgreSQL** and serves a web dashboard. It demonstrates production-grade Kotlin development with:
 
 - **Clean Architecture** - Separation of Domain, Application, and Infrastructure layers
 - **Functional Error Handling** - Arrow's `Either` with sealed error types
@@ -514,13 +514,16 @@ generateSequence { iterator.nextOrNull() }
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | Clikt | 5.0.1 | CLI framework |
-| Apache POI | 5.5.1 | Excel parsing |
-| SQLite JDBC | 3.45.2.0 | Database driver |
-| Flyway | 10.10.0 | Database migrations |
+| Apache POI | 5.2.5 | Excel parsing (both CLI and backend) |
+| PostgreSQL JDBC | 42.x | Database driver |
+| HikariCP | 5.x | Connection pool (CLI + backend) |
+| JetBrains Exposed | 0.54.0 | Kotlin DSL ORM (`exposed-core` + `exposed-jdbc`) |
+| Flyway | 10.10.0 | Database migrations (`flyway-core` + `flyway-database-postgresql`) |
 | Kotlinx Coroutines | 1.8.0 | Async operations |
 | Arrow Core | 2.0.1 | Functional error handling |
 | Kotest | 6.1.3 | Testing framework |
 | MockK | 1.14.9 | Mocking library |
+| Testcontainers | latest | PostgreSQL integration tests |
 
 ## Quick Reference
 
@@ -605,11 +608,13 @@ A Ktor-based REST API that serves a single-file HTML/JS dashboard. It reads from
 | HTTP server | Ktor 3.4.0 (Netty engine) |
 | Dependency injection | Koin 4.1.2-Beta1 |
 | Serialization | kotlinx.serialization (JSON) |
-| Database | SQLite via plain JDBC (`sqlite-jdbc 3.45.3.0`) |
+| Database | PostgreSQL 16 via JetBrains Exposed 0.54.0 + HikariCP |
+| Migrations | Flyway (`classpath:db/migration`, copied from root project) |
+| ML inference | `TextClassifierNeuralNetwork` + `NeuralNetworkClassifier` (pure Kotlin, copied from classification module) |
 | Frontend | Tailwind CSS CDN + Flowbite 2.3.0 + ApexCharts 3.48.0 |
 
 Run the server: `./gradlew :server:run` (listens on port 8080)
-Working directory when running: `backend/server/` → DB path must be `../../e-balance.db`
+Run with Docker: `make backend` (builds fat JAR then `docker compose up --build backend`)
 
 ---
 
@@ -658,12 +663,16 @@ backend/server/src/main/resources/
 ### Database Schema
 
 ```sql
--- Tables (created by Flyway in the CLI project)
-transactions(id INTEGER PRIMARY KEY, operated_at TEXT, description TEXT, value REAL, balance REAL, category_id INT)
-category(id INTEGER PRIMARY KEY, name TEXT, enum_name TEXT)
+-- PostgreSQL — created by Flyway migrations
+transactions(id SERIAL PRIMARY KEY, operated_at TEXT, description TEXT, value DOUBLE PRECISION, balance DOUBLE PRECISION, category_id INT DEFAULT 0)
+category(id INT PRIMARY KEY, name TEXT, enum_name TEXT)
+investment_asset(id SERIAL PRIMARY KEY, ticker TEXT UNIQUE, name TEXT, sector TEXT, exchange TEXT DEFAULT 'NASDAQ', invested_amount DOUBLE PRECISION DEFAULT 0, current_value DOUBLE PRECISION DEFAULT 0, notes TEXT, created_at TEXT, updated_at TEXT)
+investment_sector_snapshot(id SERIAL PRIMARY KEY, sector_name TEXT, month_year TEXT, total_value DOUBLE PRECISION DEFAULT 0)
 
 -- Sign convention: value > 0 = INCOME, value < 0 = EXPENSE
 -- operated_at stored as ISO-8601 text: "YYYY-MM-DD"
+-- PostgreSQL-specific: use SERIAL (not AUTOINCREMENT), ON CONFLICT DO NOTHING (not INSERT OR IGNORE)
+-- Monthly grouping: TO_CHAR(operated_at::date, 'YYYY-MM') (not strftime)
 ```
 
 ---
@@ -679,6 +688,7 @@ Base path: `/api/v1`
 | `GET` | `/transactions/monthly-by-category` | Monthly trend (full DB, ignores date filter) |
 | `GET` | `/categories` | All categories for dropdowns |
 | `PATCH` | `/transactions/{id}/category` | Update a transaction's category |
+| `POST` | `/transactions/import` | Upload XLS, classify with NN, save; streams SSE progress |
 
 #### Common query parameters (parsed by `parseFilter`)
 
@@ -759,7 +769,7 @@ override fun execute(filter: TransactionFilter) =
     ))
 ```
 
-SQL groups by `strftime('%Y-%m', operated_at)` × `category_id`. Missing months for a category are zero-filled in Kotlin post-processing.
+SQL groups by `TO_CHAR(operated_at::date, 'YYYY-MM')` × `category_id` (PostgreSQL). Missing months for a category are zero-filled in Kotlin post-processing.
 
 #### Error responses
 
@@ -869,26 +879,261 @@ Default date range: `2025-11-01` → today (hardcoded in `initDateFilters()`).
 ### Backend Build & Run
 
 ```bash
-# Run the server (from backend/)
+# Run the server locally (from backend/)
 ./gradlew :server:run
 
-# Build fat JAR
+# Build fat JAR (output: backend/server/build/libs/server-all.jar)
 ./gradlew :server:buildFatJar
 
 # Open dashboard
 open http://localhost:8080
 ```
 
-The server logs the resolved DB path on startup:
-```
-Database path → /absolute/path/to/e-balance.db (exists: true)
+#### Docker deployment (recommended)
+
+```bash
+# From project root — Makefile targets:
+make up          # build fat JAR + docker compose up -d (postgres + backend)
+make backend     # rebuild backend only (fat JAR + docker compose up --build backend)
+make down        # docker compose down
+make logs        # docker compose logs -f backend
+make restart     # rebuild + restart backend only
 ```
 
-If `exists: false`, check that `database.path` in `application.yaml` resolves correctly relative to `backend/server/`.
+**Dockerfile is single-stage JRE-only** (`eclipse-temurin:21-jre-alpine`). Fat JAR must be built on the host first (`make build-backend`). Do NOT use a multi-stage Dockerfile — the JDK image is too large and causes Docker Hub CDN timeouts.
+
+#### Configuration
+
+Config priority (highest → lowest): environment variable → `.env` at project root → `application.yaml` defaults.
+
+| Config | Env var | YAML key | Default |
+|--------|---------|----------|---------|
+| DB URL | `DATABASE_URL` | `database.url` | `jdbc:postgresql://localhost:5432/ebalance` |
+| DB user | `DATABASE_USERNAME` | `database.username` | `ebalance` |
+| DB password | `DATABASE_PASSWORD` | `database.password` | `ebalance` |
+| Model path | `CLASSIFIER_MODEL_PATH` | `classifier.modelPath` | `../nn-model.bin` |
+
+The `.env` file lives at the project root and is loaded by `loadDotEnv()` in `Frameworks.kt` (searches `../../.env` from `backend/server/`).
+
+The server logs the resolved model path and DB URL on startup.
 
 ---
 
-**Version:** 1.1.0
-**Last Updated:** 2026-02-27
+## JetBrains Exposed ORM Patterns
+
+Exposed 0.54.0 wraps the existing HikariCP `DataSource`. All repository code uses `transaction(database) { }`.
+
+### Setup
+
+```kotlin
+// Frameworks.kt / DatabaseFactory.kt
+val dataSource: HikariDataSource = createDataSource(config)
+val database: Database = Database.connect(dataSource)
+// Pass `database` (not `dataSource`) to all repositories / Koin modules
+```
+
+### Table objects
+
+```kotlin
+object TransactionsTable : Table("transactions") {
+    val id = long("id").autoIncrement()
+    val operatedAt = text("operated_at")
+    val value = double("value")
+    val categoryId = long("category_id").default(0L)
+    override val primaryKey = PrimaryKey(id)
+}
+```
+
+### Common DSL patterns
+
+```kotlin
+// Insert, ignore duplicates
+TransactionsTable.insertIgnore { it[description] = tx.description; ... }
+
+// Batch insert (returns list of inserted result maps)
+val results = TransactionsTable.batchInsert(txList, ignore = true) { tx -> ... }
+
+// Select all with ordering
+TransactionsTable.selectAll()
+    .orderBy(TransactionsTable.operatedAt to SortOrder.DESC)
+    .map { row -> TransactionRow(row[TransactionsTable.id], ...) }
+
+// Upsert (0.54+, requires unique index on conflict column)
+InvestmentAssetTable.upsert(InvestmentAssetTable.ticker) { it[ticker] = ...; ... }
+
+// Update by condition
+TransactionsTable.update({ TransactionsTable.id eq transactionId }) { it[categoryId] = newId }
+
+// Count
+TransactionsTable.selectAll().count()
+```
+
+### Aggregate queries with CASE / COALESCE
+
+```kotlin
+// Op.build {} is REQUIRED to use operators (greater, less) inside When/Case
+val totalExpenses = Sum(
+    Case().When(Op.build { TransactionsTable.value less 0.0 }, TransactionsTable.value.abs())
+          .Else(doubleParam(0.0)),
+    DoubleColumnType()
+)
+val catName = Coalesce(CategoryTable.name, stringParam("Desconhecida"))
+
+TransactionsTable
+    .join(CategoryTable, JoinType.LEFT, TransactionsTable.categoryId, CategoryTable.id)
+    .select(catName, totalExpenses, TransactionsTable.id.count())
+    .where { TransactionsTable.operatedAt greaterEq startDate }
+    .groupBy(CategoryTable.name)   // GROUP BY the raw column, NOT the COALESCE alias
+    .orderBy(totalExpenses to SortOrder.DESC)
+```
+
+**Pitfall:** PostgreSQL requires every SELECT expression in GROUP BY or it must be an aggregate. Always group by `CategoryTable.name` (the raw column), not by the `Coalesce(...)` expression alias.
+
+### Custom SQL function (TO_CHAR for monthly grouping)
+
+```kotlin
+class ToCharDate(val column: Expression<String>, val format: String) : Function<String>(TextColumnType()) {
+    override fun toQueryBuilder(queryBuilder: QueryBuilder) = queryBuilder {
+        append("TO_CHAR(", column, "::date, '", format, "')")
+    }
+}
+// Usage:
+val monthYear = ToCharDate(TransactionsTable.operatedAt, "YYYY-MM")
+query.groupBy(TransactionsTable.operatedAt)  // then map to monthYear post-select
+```
+
+**Pitfall:** Do NOT extend `Function<Double>` — it collides with Kotlin stdlib's `Function` interface. Use `ExpressionWithColumnType<T>` or `Function<T>` with a concrete non-stdlib type and explicit package import.
+
+### Version catalog (backend/gradle/libs.versions.toml)
+
+```toml
+[versions]
+exposed = "0.54.0"
+
+[libraries]
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+```
+
+---
+
+## Import via XLS — SSE Streaming Endpoint
+
+### Architecture
+
+```
+POST /api/v1/transactions/import (multipart/form-data, field = "file")
+    → ImportTransactionsUseCase
+        → ExcelTransactionReader.read(inputStream)   // Apache POI HSSFWorkbook
+        → CategoryTable lookup → Map<String, Long>   // enumName → id
+        → NeuralNetworkClassifier.predict(description) per row
+        → TransactionsTable.insertIgnore { }
+    → respondTextWriter(ContentType.Text.EventStream) // SSE back to client
+```
+
+### SSE in Ktor 3.x (POST)
+
+Standard `EventSource` API only supports GET. Use `fetch()` + `ReadableStream` on the frontend.
+
+```kotlin
+// Backend: stream SSE from a POST handler
+call.respondTextWriter(contentType = ContentType.Text.EventStream, status = HttpStatusCode.OK) {
+    fun emit(json: String) { write("data: $json\n\n"); flush() }
+    importUseCase.execute(ByteArrayInputStream(bytes)) { stage ->
+        when (stage) {
+            is Stage.Reading    -> emit("""{"stage":"reading"}""")
+            is Stage.Classifying -> emit("""{"stage":"classifying","total":${stage.total}}""")
+            is Stage.Saving     -> emit("""{"stage":"saving"}""")
+            is Stage.Complete   -> emit("""{"stage":"complete","totalRead":${stage.result.totalRead},...}""")
+            is Stage.Failed     -> emit("""{"stage":"error","message":"${stage.message}"}""")
+        }
+    }
+}
+```
+
+```javascript
+// Frontend: consume SSE from a POST (fetch + ReadableStream)
+const res = await fetch(`${API_BASE}/transactions/import`, { method: 'POST', body: formData });
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = '';
+while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n\n');
+    buffer = lines.pop();
+    for (const chunk of lines) {
+        const line = chunk.replace(/^data: /, '').trim();
+        if (line) handleImportEvent(JSON.parse(line));
+    }
+}
+```
+
+### Multipart file upload — Ktor 3.x
+
+```kotlin
+// PartData.FileItem.streamProvider() is deprecated in Ktor 3.x — use provider()
+val multipart = call.receiveMultipart()
+var fileBytes: ByteArray? = null
+multipart.forEachPart { part ->
+    if (part is PartData.FileItem) {
+        fileBytes = part.provider().toByteArray()  // provider() returns ByteReadChannel
+        // toByteArray() is from io.ktor.utils.io — must import explicitly
+    }
+    part.dispose()
+}
+```
+
+### Neural network classifier in backend
+
+The `classification/` module is a separate Gradle build and cannot be a direct dependency of `backend/`. Copy the two pure-Kotlin files:
+
+- `TextClassifierNeuralNetwork.kt` → `backend/server/src/main/kotlin/com/ebalance/classification/`
+- `NeuralNetworkClassifier.kt` → `backend/server/src/main/kotlin/com/ebalance/classification/`
+
+Both files use only Kotlin stdlib + `java.io.*`. No DL4J or other heavy deps needed.
+
+Category lookup after classification — the classifier returns a label string (e.g. `"RESTAURANTE"`). Query `CategoryTable` once per import run to build `Map<String, Long>` (enum_name → id):
+
+```kotlin
+val categoryMap: Map<String, Long> = transaction(database) {
+    CategoryTable.selectAll().associate { it[CategoryTable.enumName] to it[CategoryTable.id] }
+}
+```
+
+---
+
+## Frontend JS Patterns
+
+### Global scope for onclick attributes
+
+Functions called from HTML `onclick="..."` attributes **must be defined at script level** (not inside `DOMContentLoaded`). Event listeners can remain inside `DOMContentLoaded`.
+
+```javascript
+// BAD — openImportModal not accessible from onclick attribute
+document.addEventListener('DOMContentLoaded', () => {
+    function openImportModal() { ... }  // trapped in closure
+    document.getElementById('btn').addEventListener('click', openImportModal);
+});
+
+// GOOD — split into global functions + DOMContentLoaded listeners
+function openImportModal() { ... }   // global scope
+function closeImportModal() { ... }  // global scope
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('startImportBtn').addEventListener('click', startImport);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImportModal(); });
+});
+```
+
+### Import timeline modal pattern
+
+Staged UI: 4 stages (reading → classifying → saving → complete). Each stage icon transitions: `pending` (grey) → `active` (spinner) → `done` (green check). Controlled by `setImportStage(stageName)`.
+
+---
+
+**Version:** 1.2.0
+**Last Updated:** 2026-03-07
 **Kotlin Version:** 2.3.0
-**JDK Version:** 17+
+**JDK Version:** 21+

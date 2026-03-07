@@ -10,6 +10,7 @@ import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.application.ImportTransactionsUseCase
 import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.infrastructure.web.transactionRoutes
 import io.ktor.server.application.*
@@ -25,6 +26,7 @@ fun Application.configureRouting() {
     val categoriesUseCase: GetCategoriesUseCase by inject()
     val monthlySummaryUseCase: GetMonthlySummaryUseCase by inject()
     val updateCategoryUseCase: UpdateTransactionCategoryUseCase by inject()
+    val importUseCase: ImportTransactionsUseCase by inject()
 
     // Investments use cases
     val walletSummaryUseCase: GetWalletSummaryUseCase by inject()
@@ -42,7 +44,7 @@ fun Application.configureRouting() {
 
         // REST API — all endpoints live under /api/v1
         route("/api/v1") {
-            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase, updateCategoryUseCase)
+            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase, updateCategoryUseCase, importUseCase)
             investmentRoutes(walletSummaryUseCase, walletHoldingsUseCase, walletProgressUseCase, upsertAssetUseCase, stockPriceHistoryUseCase)
         }
     }

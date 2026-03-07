@@ -58,7 +58,7 @@ class TransactionRepositoryImpl(private val database: Database) : TransactionRep
                     }
 
                 val categories = applyFilters(baseQuery, filter)
-                    .groupBy(TransactionsTable.categoryId, catName)
+                    .groupBy(TransactionsTable.categoryId, CategoryTable.name)
                     .orderBy(totalExpenses to SortOrder.DESC)
                     .map { row ->
                         CategorySummary(
@@ -197,7 +197,7 @@ class TransactionRepositoryImpl(private val database: Database) : TransactionRep
                 )
 
                 val rawRows = applyFilters(baseQuery, filter)
-                    .groupBy(monthYearExpr, TransactionsTable.categoryId, catName)
+                    .groupBy(monthYearExpr, TransactionsTable.categoryId, CategoryTable.name)
                     .orderBy(monthYearExpr to SortOrder.ASC, totalExpenses to SortOrder.DESC)
                     .map { row ->
                         RawRow(

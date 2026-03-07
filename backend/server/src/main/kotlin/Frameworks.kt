@@ -78,6 +78,13 @@ fun Application.configureFrameworks() {
         ?: ""
     if (serpApiKey.isBlank()) environment.log.warn("serpapi.apiKey is not configured — portfolio progress chart will be empty")
 
+    // Classifier model path: .env > system env > application.yaml
+    val modelPath = dotEnv["CLASSIFIER_MODEL_PATH"]
+        ?: System.getenv("CLASSIFIER_MODEL_PATH")
+        ?: environment.config.propertyOrNull("classifier.modelPath")?.getString()
+        ?: "nn-model.bin"
+    environment.log.info("Classifier model path → $modelPath")
+
     // Create shared HikariCP connection pool
     val dataSource = HikariDataSource(HikariConfig().apply {
         jdbcUrl = dbUrl
@@ -108,7 +115,7 @@ fun Application.configureFrameworks() {
                     }
                 }
             },
-            transactionModule(database),
+            transactionModule(database, modelPath),
             investmentModule(database, serpApiKey)
         )
     }
