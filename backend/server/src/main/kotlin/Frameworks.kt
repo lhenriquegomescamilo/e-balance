@@ -10,6 +10,7 @@ import kotlinx.rpc.krpc.ktor.server.Krpc
 import kotlinx.rpc.krpc.ktor.server.rpc
 import kotlinx.rpc.krpc.serialization.json.*
 import org.flywaydb.core.Flyway
+import org.jetbrains.exposed.sql.Database
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
@@ -95,6 +96,8 @@ fun Application.configureFrameworks() {
         .load()
         .migrate()
 
+    val database = Database.connect(dataSource)
+
     install(Koin) {
         slf4jLogger()
         modules(
@@ -105,8 +108,8 @@ fun Application.configureFrameworks() {
                     }
                 }
             },
-            transactionModule(dataSource),
-            investmentModule(dataSource, serpApiKey)
+            transactionModule(database),
+            investmentModule(database, serpApiKey)
         )
     }
 

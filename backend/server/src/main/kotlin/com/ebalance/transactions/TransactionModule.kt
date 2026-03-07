@@ -5,22 +5,22 @@ import com.ebalance.transactions.application.*
 import com.ebalance.transactions.domain.TransactionRepository
 import com.ebalance.transactions.infrastructure.persistence.TransactionRepositoryImpl
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.sql.Database
 import org.koin.dsl.module
-import javax.sql.DataSource
 
 /**
  * Koin module wiring for the transactions feature.
  *
- * Bindings (all singletons — repository borrows a connection from HikariCP pool per call):
- *   TransactionRepository                → TransactionRepositoryImpl(dataSource)
+ * Bindings (all singletons — repository uses Exposed DSL inside transaction { } blocks):
+ *   TransactionRepository                → TransactionRepositoryImpl(database)
  *   GetTransactionSummaryUseCase         → GetTransactionSummaryInteractor
  *   GetTransactionsUseCase               → GetTransactionsInteractor
  *   GetCategoriesUseCase                 → GetCategoriesInteractor
  *   GetMonthlySummaryUseCase             → GetMonthlySummaryInteractor
  *   UpdateTransactionCategoryUseCase     → UpdateTransactionCategoryInteractor
  */
-fun transactionModule(dataSource: DataSource) = module {
-    single<TransactionRepository>                { TransactionRepositoryImpl(dataSource) }
+fun transactionModule(database: Database) = module {
+    single<TransactionRepository>                { TransactionRepositoryImpl(database) }
     single<GetTransactionSummaryUseCase>         { GetTransactionSummaryInteractor(get()) }
     single<GetTransactionsUseCase>               { GetTransactionsInteractor(get()) }
     single<GetCategoriesUseCase>                 { GetCategoriesInteractor(get()) }

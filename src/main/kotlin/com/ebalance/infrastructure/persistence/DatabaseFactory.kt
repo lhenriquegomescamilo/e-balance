@@ -3,7 +3,7 @@ package com.ebalance.infrastructure.persistence
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
-import javax.sql.DataSource
+import org.jetbrains.exposed.sql.Database
 
 data class DbConfig(
     val url: String,
@@ -13,7 +13,7 @@ data class DbConfig(
 
 object DatabaseFactory {
 
-    fun createDataSource(config: DbConfig): DataSource =
+    fun createDataSource(config: DbConfig): HikariDataSource =
         HikariDataSource(HikariConfig().apply {
             jdbcUrl = config.url
             username = config.username
@@ -23,13 +23,13 @@ object DatabaseFactory {
             minimumIdle = 1
         })
 
-    fun initialize(config: DbConfig): DataSource {
+    fun initialize(config: DbConfig): Database {
         val dataSource = createDataSource(config)
         Flyway.configure()
             .dataSource(dataSource)
             .locations("classpath:db/migration")
             .load()
             .migrate()
-        return dataSource
+        return Database.connect(dataSource)
     }
 }

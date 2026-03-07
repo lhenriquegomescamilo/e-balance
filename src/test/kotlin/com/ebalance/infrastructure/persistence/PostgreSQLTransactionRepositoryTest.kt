@@ -10,6 +10,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.flywaydb.core.Flyway
+import org.jetbrains.exposed.sql.Database
 import org.testcontainers.containers.PostgreSQLContainer
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -22,6 +23,7 @@ class PostgreSQLTransactionRepositoryTest : DescribeSpec({
         .withPassword("ebalance")
 
     lateinit var dataSource: HikariDataSource
+    lateinit var database: Database
     lateinit var repository: PostgreSQLTransactionRepository
 
     beforeSpec {
@@ -40,6 +42,8 @@ class PostgreSQLTransactionRepositoryTest : DescribeSpec({
             .locations("classpath:db/migration")
             .load()
             .migrate()
+
+        database = Database.connect(dataSource)
     }
 
     afterSpec {
@@ -53,7 +57,7 @@ class PostgreSQLTransactionRepositoryTest : DescribeSpec({
                 stmt.execute("TRUNCATE TABLE transactions RESTART IDENTITY")
             }
         }
-        repository = PostgreSQLTransactionRepository(dataSource, Dispatchers.IO)
+        repository = PostgreSQLTransactionRepository(database, Dispatchers.IO)
     }
 
     describe("PostgreSQLTransactionRepository") {

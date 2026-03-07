@@ -4,6 +4,8 @@ import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.testcontainers.containers.PostgreSQLContainer
 
 class DatabaseFactoryTest : DescribeSpec({
@@ -13,7 +15,9 @@ class DatabaseFactoryTest : DescribeSpec({
         .withUsername("ebalance")
         .withPassword("ebalance")
 
-    lateinit var dataSource: HikariDataSource
+    // Raw HikariDataSource for direct JDBC assertions and explicit close
+    lateinit var rawDataSource: HikariDataSource
+    lateinit var database: Database
 
     beforeSpec {
         postgres.start()
@@ -22,11 +26,12 @@ class DatabaseFactoryTest : DescribeSpec({
             username = postgres.username,
             password = postgres.password
         )
-        dataSource = DatabaseFactory.initialize(config) as HikariDataSource
+        database = DatabaseFactory.initialize(config)
+        rawDataSource = DatabaseFactory.createDataSource(config)
     }
 
     afterSpec {
-        dataSource.close()
+        rawDataSource.close()
         postgres.stop()
     }
 
@@ -35,7 +40,7 @@ class DatabaseFactoryTest : DescribeSpec({
         describe("initialize") {
 
             it("should run Flyway migrations") {
-                dataSource.connection.use { conn ->
+                rawDataSource.connection.use { conn ->
                     conn.createStatement().use { stmt ->
                         val rs = stmt.executeQuery("SELECT COUNT(*) FROM flyway_schema_history")
                         rs.next()
@@ -45,7 +50,7 @@ class DatabaseFactoryTest : DescribeSpec({
             }
 
             it("should create transactions table") {
-                dataSource.connection.use { conn ->
+                rawDataSource.connection.use { conn ->
                     conn.createStatement().use { stmt ->
                         val rs = stmt.executeQuery(
                             """
@@ -65,22 +70,23 @@ class DatabaseFactoryTest : DescribeSpec({
                     username = postgres.username,
                     password = postgres.password
                 )
-                val ds2 = DatabaseFactory.initialize(config) as HikariDataSource
-                ds2.connection.use { conn -> conn.isValid(1) shouldBe true }
-                ds2.close()
+                val db2 = DatabaseFactory.initialize(config)
+                transaction(db2) {
+                    exec("SELECT 1") {}
+                }
             }
         }
 
         describe("createDataSource") {
 
             it("should create a valid PostgreSQL DataSource") {
-                dataSource.connection.use { conn ->
+                rawDataSource.connection.use { conn ->
                     conn.isValid(1) shouldBe true
                 }
             }
 
             it("should create DataSource with PostgreSQL URL") {
-                dataSource.connection.use { conn ->
+                rawDataSource.connection.use { conn ->
                     conn.metaData.url shouldContain "postgresql"
                 }
             }

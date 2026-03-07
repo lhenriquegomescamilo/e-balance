@@ -29,10 +29,10 @@ class InitCommand : CliktCommand() {
     override fun run() {
         val config = loadDbConfig(configFile)
         echo("Connecting to database: ${config.url}")
-        val dataSource = DatabaseFactory.initialize(config)
+        val database = DatabaseFactory.initialize(config)
 
         val transactionRepository: TransactionRepository =
-            PostgreSQLTransactionRepository(dataSource, Dispatchers.IO)
+            PostgreSQLTransactionRepository(database, Dispatchers.IO)
 
         currentContext.obj = Dependencies(
             transactionRepository = transactionRepository,
