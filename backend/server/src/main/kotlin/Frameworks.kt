@@ -95,13 +95,21 @@ fun Application.configureFrameworks() {
         minimumIdle = 2
     })
 
-    // Run Flyway migrations using classpath migrations
-    environment.log.info("Running Flyway migrations from classpath:db/migration")
-    Flyway.configure()
-        .dataSource(dataSource)
-        .locations("classpath:db/migration")
-        .load()
-        .migrate()
+    // FLYWAY_ENABLED=false skips in-app migration (used in Docker where flyway-migrator
+    // container runs migrations before this service starts).
+    if (System.getenv("FLYWAY_ENABLED") != "false") {
+        val localPath = java.io.File("src/main/resources/db/migration")
+        val migrationsLocation = if (localPath.exists()) "filesystem:${localPath.canonicalPath}"
+            else "classpath:db/migration"
+        environment.log.info("Running Flyway migrations from $migrationsLocation")
+        Flyway.configure()
+            .dataSource(dataSource)
+            .locations(migrationsLocation)
+            .load()
+            .migrate()
+    } else {
+        environment.log.info("Flyway in-app migration disabled (FLYWAY_ENABLED=false)")
+    }
 
     val database = Database.connect(dataSource)
 

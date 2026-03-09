@@ -4,8 +4,9 @@
 up: build-backend
 	docker compose up -d
 
-# Start/rebuild only the backend
+# Start/rebuild only the backend (runs flyway-migrator first, then backend)
 backend: build-backend
+	docker compose up -d flyway-migrator
 	docker compose up -d --build backend
 
 # Build the backend fat JAR (required before docker compose build)
@@ -16,8 +17,9 @@ build-backend:
 down:
 	docker compose down
 
-# Restart backend only (rebuild JAR + image)
+# Restart backend only (rebuild JAR + image, runs flyway-migrator first)
 restart: build-backend
+	docker compose up -d flyway-migrator
 	docker compose up -d --build backend
 
 # Tail backend logs
