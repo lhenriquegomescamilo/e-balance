@@ -13,7 +13,8 @@ interface UpsertInvestmentAssetUseCase {
         sector: String,
         exchange: String,
         investedAmount: Double,
-        currentValue: Double
+        currentValue: Double,
+        purchasedAt: String?
     ): Either<InvestmentError, Unit>
 }
 
@@ -27,7 +28,8 @@ class UpsertInvestmentAssetInteractor(
         sector: String,
         exchange: String,
         investedAmount: Double,
-        currentValue: Double
+        currentValue: Double,
+        purchasedAt: String?
     ): Either<InvestmentError, Unit> = either {
         ensure(ticker.isNotBlank()) { InvestmentError.InvalidParameter("Ticker cannot be empty") }
         ensure(name.isNotBlank()) { InvestmentError.InvalidParameter("Name cannot be empty") }
@@ -35,6 +37,6 @@ class UpsertInvestmentAssetInteractor(
         ensure(investedAmount >= 0) { InvestmentError.InvalidParameter("Invested amount must be ≥ 0") }
         ensure(currentValue >= 0) { InvestmentError.InvalidParameter("Current value must be ≥ 0") }
 
-        repository.upsertAsset(ticker, name, sector, exchange, investedAmount, currentValue).bind()
+        repository.upsertAsset(ticker, name, sector, exchange, investedAmount, currentValue, purchasedAt).bind()
     }
 }

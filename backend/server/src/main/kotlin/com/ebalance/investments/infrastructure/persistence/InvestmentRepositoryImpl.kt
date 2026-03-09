@@ -27,7 +27,8 @@ class InvestmentRepositoryImpl(private val database: Database) : InvestmentRepos
                             sector         = row[InvestmentAssetTable.sector],
                             exchange       = row[InvestmentAssetTable.exchange],
                             investedAmount = row[InvestmentAssetTable.investedAmount],
-                            currentValue   = row[InvestmentAssetTable.currentValue]
+                            currentValue   = row[InvestmentAssetTable.currentValue],
+                            purchasedAt    = row[InvestmentAssetTable.purchasedAt]
                         )
                     }
             }
@@ -39,7 +40,7 @@ class InvestmentRepositoryImpl(private val database: Database) : InvestmentRepos
     // ── upsertAsset ───────────────────────────────────────────────────────────
     override fun upsertAsset(
         ticker: String, name: String, sector: String, exchange: String,
-        investedAmount: Double, currentValue: Double
+        investedAmount: Double, currentValue: Double, purchasedAt: String?
     ): Either<InvestmentError.DatabaseError, Unit> =
         runCatching {
             transaction(database) {
@@ -59,6 +60,7 @@ class InvestmentRepositoryImpl(private val database: Database) : InvestmentRepos
                     stmt[InvestmentAssetTable.exchange] = exchange.uppercase()
                     stmt[InvestmentAssetTable.investedAmount] = investedAmount
                     stmt[InvestmentAssetTable.currentValue] = currentValue
+                    stmt[InvestmentAssetTable.purchasedAt] = purchasedAt
                     stmt[InvestmentAssetTable.notes] = null
                     stmt[InvestmentAssetTable.createdAt] = now
                     stmt[InvestmentAssetTable.updatedAt] = now

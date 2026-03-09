@@ -545,6 +545,18 @@
         </div>
       </div>
 
+      <!-- Purchase Date -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Purchase Date
+          <span class="ml-1 text-gray-400 dark:text-gray-500 font-normal">(optional — used for P&amp;L tracking)</span>
+        </label>
+        <input id="f-purchased-at" type="date"
+               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                      bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                      focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+
       <!-- Error -->
       <p id="dialog-error" class="hidden text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg"></p>
 
@@ -1089,13 +1101,15 @@ function openAssetDialog(holding = null) {
     document.getElementById('f-name').value     = holding.name;
     document.getElementById('f-sector').value   = holding.sector;
     document.getElementById('f-exchange').value = holding.exchange || 'NASDAQ';
-    document.getElementById('f-invested').value = holding.invested;
-    document.getElementById('f-current').value  = holding.currentValue;
+    document.getElementById('f-invested').value     = holding.invested;
+    document.getElementById('f-current').value       = holding.currentValue;
+    document.getElementById('f-purchased-at').value  = holding.purchasedAt ?? '';
   } else {
     document.getElementById('asset-form').reset();
     document.getElementById('f-ticker').readOnly = false;
     document.getElementById('f-ticker').classList.remove('opacity-60', 'cursor-not-allowed');
     document.getElementById('f-exchange').value = 'NASDAQ';
+    document.getElementById('f-purchased-at').value = '';
   }
 
   document.getElementById('asset-dialog-backdrop').classList.remove('hidden');
@@ -1110,12 +1124,13 @@ function closeAssetDialog(e) {
 async function submitAssetForm(e) {
   e.preventDefault();
 
-  const ticker   = document.getElementById('f-ticker').value.trim().toUpperCase();
-  const name     = document.getElementById('f-name').value.trim();
-  const sector   = document.getElementById('f-sector').value.trim();
-  const exchange = document.getElementById('f-exchange').value.trim().toUpperCase();
-  const invested = parseFloat(document.getElementById('f-invested').value) || 0;
-  const current  = parseFloat(document.getElementById('f-current').value) || 0;
+  const ticker      = document.getElementById('f-ticker').value.trim().toUpperCase();
+  const name        = document.getElementById('f-name').value.trim();
+  const sector      = document.getElementById('f-sector').value.trim();
+  const exchange    = document.getElementById('f-exchange').value.trim().toUpperCase();
+  const invested    = parseFloat(document.getElementById('f-invested').value) || 0;
+  const current     = parseFloat(document.getElementById('f-current').value) || 0;
+  const purchasedAt = document.getElementById('f-purchased-at').value || null;
 
   const errorEl  = document.getElementById('dialog-error');
   const submitBtn = document.getElementById('dialog-submit');
@@ -1129,7 +1144,7 @@ async function submitAssetForm(e) {
     const res = await fetch(`${API_BASE}/investments/assets/${encodeURIComponent(ticker)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, sector, exchange, investedAmount: invested, currentValue: current })
+      body: JSON.stringify({ name, sector, exchange, investedAmount: invested, currentValue: current, purchasedAt })
     });
 
     if (!res.ok) {

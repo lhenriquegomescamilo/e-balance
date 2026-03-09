@@ -11,6 +11,7 @@ object InvestmentAssetTable : Table("investment_asset") {
     val investedAmount = double("invested_amount").default(0.0)
     val currentValue = double("current_value").default(0.0)
     val notes = text("notes").nullable()
+    val purchasedAt = text("purchased_at").nullable()
     val createdAt = text("created_at")
     val updatedAt = text("updated_at")
     override val primaryKey = PrimaryKey(id)

@@ -143,7 +143,7 @@ fun Route.investmentRoutes(
             )
         call.application.environment.log.info("PUT /investments/assets/$ticker")
         val body = call.receive<UpsertAssetRequest>()
-        upsertUseCase.execute(ticker, body.name, body.sector, body.exchange, body.investedAmount, body.currentValue).fold(
+        upsertUseCase.execute(ticker, body.name, body.sector, body.exchange, body.investedAmount, body.currentValue, body.purchasedAt).fold(
             ifLeft  = { call.respondInvestmentError(it) },
             ifRight = { call.respond(HttpStatusCode.OK, mapOf("ticker" to ticker, "message" to "Saved")) }
         )
@@ -160,7 +160,8 @@ private fun InvestmentAsset.toDto() = InvestmentAssetDto(
     invested     = investedAmount,
     currentValue = currentValue,
     pnl          = pnl,
-    roi          = roi
+    roi          = roi,
+    purchasedAt  = purchasedAt
 )
 
 // ── Extension: respond with the appropriate HTTP error ───────────────────────

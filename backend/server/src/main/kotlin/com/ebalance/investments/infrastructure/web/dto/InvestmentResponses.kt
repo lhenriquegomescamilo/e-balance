@@ -40,7 +40,8 @@ data class InvestmentAssetDto(
     val invested: Double,
     val currentValue: Double,
     val pnl: Double,
-    val roi: Double
+    val roi: Double,
+    val purchasedAt: String?
 )
 
 @Serializable
@@ -57,7 +58,8 @@ data class UpsertAssetRequest(
     val sector: String,
     val exchange: String,
     val investedAmount: Double,
-    val currentValue: Double
+    val currentValue: Double,
+    val purchasedAt: String? = null
 )
 
 // ── /investments/progress ────────────────────────────────────────────────────

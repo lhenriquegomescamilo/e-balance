@@ -5,5 +5,5 @@ import arrow.core.Either
 interface InvestmentRepository {
     fun getAssets(): Either<InvestmentError.DatabaseError, List<InvestmentAsset>>
     fun getSectorSnapshots(limitMonths: Int): Either<InvestmentError.DatabaseError, WalletProgress>
-    fun upsertAsset(ticker: String, name: String, sector: String, exchange: String, investedAmount: Double, currentValue: Double): Either<InvestmentError.DatabaseError, Unit>
+    fun upsertAsset(ticker: String, name: String, sector: String, exchange: String, investedAmount: Double, currentValue: Double, purchasedAt: String?): Either<InvestmentError.DatabaseError, Unit>
 }
