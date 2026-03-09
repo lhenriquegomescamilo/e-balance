@@ -527,6 +527,9 @@
         </div>
       </div>
 
+      <!-- Ticker/Exchange validation status -->
+      <div id="ticker-validation-status" class="hidden -mt-2 flex items-center gap-1.5 text-xs px-1"></div>
+
       <!-- Amounts row -->
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -1079,6 +1082,62 @@ async function loadProgress(period = '6m') {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   ASSET DIALOG — ticker/exchange validation
+════════════════════════════════════════════════════════════════ */
+
+// null = not yet validated | true = valid | false = invalid
+let _tickerValidState = null;
+
+function setValidationStatus(state, message) {
+  const el = document.getElementById('ticker-validation-status');
+  el.classList.remove('hidden', 'text-green-600', 'text-red-500', 'text-gray-400',
+                       'dark:text-green-400', 'dark:text-red-400', 'dark:text-gray-500');
+  if (state === 'loading') {
+    el.classList.add('text-gray-400', 'dark:text-gray-500');
+    el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>' + message + '</span>';
+  } else if (state === 'valid') {
+    el.classList.add('text-green-600', 'dark:text-green-400');
+    el.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>' + message + '</span>';
+  } else if (state === 'invalid') {
+    el.classList.add('text-red-500', 'dark:text-red-400');
+    el.innerHTML = '<i class="fa-solid fa-circle-xmark"></i><span>' + message + '</span>';
+  }
+  el.classList.remove('hidden');
+}
+
+function clearValidationStatus() {
+  _tickerValidState = null;
+  const el = document.getElementById('ticker-validation-status');
+  el.classList.add('hidden');
+  el.innerHTML = '';
+}
+
+async function validateTicker() {
+  const ticker   = document.getElementById('f-ticker').value.trim().toUpperCase();
+  const exchange = document.getElementById('f-exchange').value.trim().toUpperCase();
+
+  if (!ticker || !exchange) { clearValidationStatus(); return; }
+
+  setValidationStatus('loading', 'Checking ticker…');
+  _tickerValidState = null;
+
+  try {
+    const res = await fetch(`${API_BASE}/investments/assets/validate?ticker=${encodeURIComponent(ticker)}&exchange=${encodeURIComponent(exchange)}`);
+    const data = await res.json();
+    if (data.exists) {
+      _tickerValidState = true;
+      setValidationStatus('valid', `${ticker} found on ${exchange}`);
+    } else {
+      _tickerValidState = false;
+      setValidationStatus('invalid', `${ticker} not found on ${exchange} — check ticker and exchange`);
+    }
+  } catch {
+    // Network error — don't block the user, just clear the status
+    clearValidationStatus();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    ASSET DIALOG
 ════════════════════════════════════════════════════════════════ */
 function openAssetDialog(holding = null) {
@@ -1086,6 +1145,7 @@ function openAssetDialog(holding = null) {
   document.getElementById('dialog-title').textContent = isEdit ? 'Edit Position' : 'Add Position';
   document.getElementById('dialog-submit-label').textContent = isEdit ? 'Save Changes' : 'Save';
   document.getElementById('dialog-error').classList.add('hidden');
+  clearValidationStatus();
 
   // Populate sector suggestions from loaded data
   const sectors = _lastSummaryData
@@ -1104,6 +1164,8 @@ function openAssetDialog(holding = null) {
     document.getElementById('f-invested').value     = holding.invested;
     document.getElementById('f-current').value       = holding.currentValue;
     document.getElementById('f-purchased-at').value  = holding.purchasedAt ?? '';
+    // In edit mode skip validation — ticker is already known to exist
+    _tickerValidState = true;
   } else {
     document.getElementById('asset-form').reset();
     document.getElementById('f-ticker').readOnly = false;
@@ -1111,6 +1173,12 @@ function openAssetDialog(holding = null) {
     document.getElementById('f-exchange').value = 'NASDAQ';
     document.getElementById('f-purchased-at').value = '';
   }
+
+  // Wire blur events — validate when user finishes entering ticker or exchange
+  const tickerEl   = document.getElementById('f-ticker');
+  const exchangeEl = document.getElementById('f-exchange');
+  tickerEl.onblur   = () => { if (!isEdit) validateTicker(); };
+  exchangeEl.onblur = () => { if (!isEdit) validateTicker(); };
 
   document.getElementById('asset-dialog-backdrop').classList.remove('hidden');
   setTimeout(() => document.getElementById('f-ticker').focus(), 50);
@@ -1137,6 +1205,14 @@ async function submitAssetForm(e) {
   const icon     = document.getElementById('dialog-submit-icon');
 
   errorEl.classList.add('hidden');
+
+  // Block save if the ticker was explicitly marked invalid by the validation check
+  if (_tickerValidState === false) {
+    errorEl.textContent = `${ticker} was not found on ${exchange}. Please verify the ticker and exchange before saving.`;
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
   submitBtn.disabled = true;
   icon.className = 'fa-solid fa-spinner fa-spin';
 

@@ -43,7 +43,8 @@ class GetStockPriceHistoryInteractorTest : DescribeSpec({
         sector         = sector,
         exchange       = exchange,
         investedAmount = investedAmount,
-        currentValue   = currentValue
+        currentValue   = currentValue,
+        purchasedAt    = null
     )
 
     // Six monthly data points in an unsorted map to verify sorting behavior

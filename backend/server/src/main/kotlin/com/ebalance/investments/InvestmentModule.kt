@@ -33,4 +33,5 @@ fun investmentModule(
     single<GetWalletProgressUseCase>      { GetWalletProgressInteractor(get(), get()) }
     single<UpsertInvestmentAssetUseCase>  { UpsertInvestmentAssetInteractor(get()) }
     single<GetStockPriceHistoryUseCase>   { GetStockPriceHistoryInteractor(get(), get()) }
+    single<ValidateStockUseCase>          { ValidateStockInteractor(get()) }
 }

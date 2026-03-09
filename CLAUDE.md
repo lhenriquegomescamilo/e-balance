@@ -109,6 +109,15 @@ cd backend && ./gradlew :server:test
 - **classification-and-cli**: macOS runner, JDK 25
 - **backend**: Ubuntu runner, JDK 21
 
+### IMPORTANT — Code quality rule
+**Every change to backend Kotlin code MUST compile and pass `./gradlew :server:test` before being considered complete.**
+
+Checklist before finishing any backend change:
+1. All files that reference a modified type/signature are updated (domain, application, infrastructure, *and* test files)
+2. Test fixtures (helper functions like `anAsset(...)`) include all required constructor parameters
+3. MockK stubs match the current method signature — count the parameters in `any(), any(), ...` chains
+4. Run `cd backend && ./gradlew :server:test --no-daemon` to confirm zero errors
+
 ## Architecture
 
 Clean Architecture pattern throughout:

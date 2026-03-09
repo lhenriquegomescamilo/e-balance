@@ -5,6 +5,7 @@ import com.ebalance.investments.application.GetWalletHoldingsUseCase
 import com.ebalance.investments.application.GetWalletProgressUseCase
 import com.ebalance.investments.application.GetWalletSummaryUseCase
 import com.ebalance.investments.application.UpsertInvestmentAssetUseCase
+import com.ebalance.investments.application.ValidateStockUseCase
 import com.ebalance.investments.domain.InvestmentAsset
 import com.ebalance.investments.domain.InvestmentError
 import com.ebalance.investments.infrastructure.web.dto.*
@@ -22,13 +23,15 @@ import io.ktor.server.routing.*
  *   GET /investments/holdings                  — individual positions
  *   GET /investments/progress?period=          — monthly sector value (3m | 6m | 12m)
  *   GET /investments/stocks/price-history?window= — per-stock monthly price evolution
+ *   GET /investments/assets/validate?ticker=&exchange= — check if stock exists in SerpAPI
  */
 fun Route.investmentRoutes(
     summaryUseCase: GetWalletSummaryUseCase,
     holdingsUseCase: GetWalletHoldingsUseCase,
     progressUseCase: GetWalletProgressUseCase,
     upsertUseCase: UpsertInvestmentAssetUseCase,
-    stockPriceHistoryUseCase: GetStockPriceHistoryUseCase
+    stockPriceHistoryUseCase: GetStockPriceHistoryUseCase,
+    validateStockUseCase: ValidateStockUseCase
 ) {
 
     // ── GET /api/v1/investments/summary ───────────────────────────────────────
@@ -129,6 +132,31 @@ fun Route.investmentRoutes(
                             )
                         }
                     )
+                )
+            }
+        )
+    }
+
+    // ── GET /api/v1/investments/assets/validate?ticker=AAPL&exchange=NASDAQ ──
+    get("/investments/assets/validate") {
+        val ticker   = call.request.queryParameters["ticker"]?.trim()?.uppercase()
+        val exchange = call.request.queryParameters["exchange"]?.trim()?.uppercase()
+
+        if (ticker.isNullOrBlank() || exchange.isNullOrBlank()) {
+            call.respond(
+                HttpStatusCode.BadRequest,
+                mapOf("error" to "INVALID_PARAMETER", "message" to "Both 'ticker' and 'exchange' query parameters are required")
+            )
+            return@get
+        }
+
+        call.application.environment.log.info("GET /investments/assets/validate?ticker=$ticker&exchange=$exchange")
+        validateStockUseCase.execute(ticker, exchange).fold(
+            ifLeft  = { call.respondInvestmentError(it) },
+            ifRight = { exists ->
+                call.respond(
+                    HttpStatusCode.OK,
+                    ValidateStockResponse(ticker = ticker, exchange = exchange, exists = exists)
                 )
             }
         )

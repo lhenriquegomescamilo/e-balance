@@ -115,7 +115,7 @@ open class SerpApiStockPriceService(
         )
 
         if (response.statusCode() != 200) {
-            log.error("SerpAPI ← HTTP ${response.statusCode()} for $ticker:$exchange")
+            log.error("SerpAPI ← HTTP ${response.statusCode()} for $ticker:$exchange, body = ${response.body()}")
             throw RuntimeException("SerpAPI HTTP ${response.statusCode()} for $ticker:$exchange")
         }
 

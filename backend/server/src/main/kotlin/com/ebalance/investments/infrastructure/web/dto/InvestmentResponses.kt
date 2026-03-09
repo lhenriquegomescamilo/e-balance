@@ -76,6 +76,15 @@ data class WalletProgressResponse(
     val series: List<SectorProgressDto>
 )
 
+// ── /investments/assets/validate ─────────────────────────────────────────────
+
+@Serializable
+data class ValidateStockResponse(
+    val ticker: String,
+    val exchange: String,
+    val exists: Boolean
+)
+
 // ── /investments/stocks/price-history ────────────────────────────────────────
 
 @Serializable
