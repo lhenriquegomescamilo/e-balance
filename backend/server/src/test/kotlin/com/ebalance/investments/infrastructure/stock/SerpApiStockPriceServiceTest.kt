@@ -1,14 +1,30 @@
 package com.ebalance.investments.infrastructure.stock
 
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
+import com.redis.testcontainers.RedisContainer
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.core.spec.style.DescribeSpec
 import io.kotest.matchers.shouldBe
+import io.lettuce.core.RedisClient
+import io.lettuce.core.api.sync.RedisCommands
 import java.time.YearMonth
 
 class SerpApiStockPriceServiceTest : DescribeSpec({
+
+    // ── Redis container (shared across all tests in this spec) ─────────────────
+
+    val redis = RedisContainer("redis:7-alpine").apply { start() }
+
+    afterSpec { redis.stop() }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /** Opens a fresh Lettuce connection to the container and flushes all keys. */
+    fun freshCommands(): RedisCommands<String, String> {
+        val commands = RedisClient.create(redis.redisURI).connect().sync()
+        commands.flushall()
+        return commands
+    }
 
     // ── Fake subclass ──────────────────────────────────────────────────────────
     //
@@ -16,9 +32,9 @@ class SerpApiStockPriceServiceTest : DescribeSpec({
     // fetchCount lets us assert how many real "network" calls were made.
 
     class FakeService(
-        cache: Cache<String, Pair<Double, Map<YearMonth, Double>>>,
+        redis: RedisCommands<String, String>,
         private val onFetch: (String, String, String) -> Pair<Double, Map<YearMonth, Double>>
-    ) : SerpApiStockPriceService("test-key", cache) {
+    ) : SerpApiStockPriceService("test-key", redis) {
         var fetchCount = 0
         override fun doFetch(ticker: String, exchange: String, window: String): Pair<Double, Map<YearMonth, Double>> {
             fetchCount++
@@ -37,14 +53,9 @@ class SerpApiStockPriceServiceTest : DescribeSpec({
         )
     )
 
-    // A fresh Caffeine cache with no TTL — entries live until evicted by size
-    fun freshCache() = Caffeine.newBuilder()
-        .maximumSize(1_000)
-        .build<String, Pair<Double, Map<YearMonth, Double>>>()
-
     fun freshService(
         onFetch: (String, String, String) -> Pair<Double, Map<YearMonth, Double>> = { _, _, _ -> sampleResult }
-    ) = FakeService(freshCache(), onFetch)
+    ) = FakeService(freshCommands(), onFetch)
 
     // ── Caching behaviour ──────────────────────────────────────────────────────
 
@@ -78,7 +89,7 @@ class SerpApiStockPriceServiceTest : DescribeSpec({
         }
 
         it("does not cache a failed fetch — doFetch is called again on retry") {
-            val service = FakeService(freshCache()) { _, _, _ -> throw RuntimeException("timeout") }
+            val service = FakeService(freshCommands()) { _, _, _ -> throw RuntimeException("timeout") }
 
             service.getMonthlyPrices("AAPL", "NASDAQ", "6M").shouldBeLeft()
             service.getMonthlyPrices("AAPL", "NASDAQ", "6M").shouldBeLeft()
@@ -88,7 +99,7 @@ class SerpApiStockPriceServiceTest : DescribeSpec({
 
         it("after a failure, a successful retry is cached for subsequent calls") {
             var attempt = 0
-            val service = FakeService(freshCache()) { _, _, _ ->
+            val service = FakeService(freshCommands()) { _, _, _ ->
                 if (++attempt == 1) throw RuntimeException("transient error")
                 else sampleResult
             }
@@ -132,6 +143,16 @@ class SerpApiStockPriceServiceTest : DescribeSpec({
 
             service.fetchCount shouldBe 2
         }
+
+        it("persists cache entries in Redis with a TTL set") {
+            val commands = freshCommands()
+            val service  = FakeService(commands) { _, _, _ -> sampleResult }
+
+            service.getMonthlyPrices("AAPL", "NASDAQ", "6M")
+
+            val ttl = commands.ttl("serpapi:AAPL:NASDAQ:6M")
+            (ttl > 0) shouldBe true
+        }
     }
 
     // ── Cache key normalisation ────────────────────────────────────────────────
@@ -172,6 +193,32 @@ class SerpApiStockPriceServiceTest : DescribeSpec({
             service.getMonthlyPrices("aapl", "nasdaq", "6m")  // all lowercase → same key
 
             service.fetchCount shouldBe 1
+        }
+    }
+
+    // ── Redis serialisation round-trip ─────────────────────────────────────────
+
+    describe("Redis serialisation") {
+
+        it("correctly round-trips monthly price data through Redis") {
+            val service = freshService()
+
+            service.getMonthlyPrices("AAPL", "NASDAQ", "6M")  // populates Redis
+            service.getMonthlyPrices("AAPL", "NASDAQ", "6M")  // reads from Redis
+
+            val result = service.getMonthlyPrices("AAPL", "NASDAQ", "6M").shouldBeRight()
+            result shouldBe sampleResult
+        }
+
+        it("two service instances sharing the same Redis see the same cached value") {
+            val commands = freshCommands()
+            val serviceA = FakeService(commands) { _, _, _ -> sampleResult }
+            val serviceB = FakeService(commands) { _, _, _ -> error("should not be called") }
+
+            serviceA.getMonthlyPrices("AAPL", "NASDAQ", "6M")  // populates cache
+            val result = serviceB.getMonthlyPrices("AAPL", "NASDAQ", "6M").shouldBeRight()
+
+            result shouldBe sampleResult
         }
     }
 })

@@ -4,6 +4,7 @@ import com.ebalance.investments.investmentModule
 import com.ebalance.transactions.transactionModule
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.lettuce.core.RedisClient
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import kotlinx.rpc.krpc.ktor.server.Krpc
@@ -78,6 +79,13 @@ fun Application.configureFrameworks() {
         ?: ""
     if (serpApiKey.isBlank()) environment.log.warn("serpapi.apiKey is not configured — portfolio progress chart will be empty")
 
+    // Redis URL: .env > system env > application.yaml > default local
+    val redisUrl = dotEnv["REDIS_URL"]
+        ?: System.getenv("REDIS_URL")
+        ?: environment.config.propertyOrNull("redis.url")?.getString()
+        ?: "redis://localhost:6379"
+    environment.log.info("Redis URL → $redisUrl")
+
     // Classifier model path: .env > system env > application.yaml
     val modelPath = dotEnv["CLASSIFIER_MODEL_PATH"]
         ?: System.getenv("CLASSIFIER_MODEL_PATH")
@@ -113,6 +121,10 @@ fun Application.configureFrameworks() {
 
     val database = Database.connect(dataSource)
 
+    val redisCommands = RedisClient.create(redisUrl)
+        .connect()
+        .sync()
+
     install(Koin) {
         slf4jLogger()
         modules(
@@ -124,7 +136,7 @@ fun Application.configureFrameworks() {
                 }
             },
             transactionModule(database, modelPath),
-            investmentModule(database, serpApiKey)
+            investmentModule(database, serpApiKey, redisCommands)
         )
     }
 

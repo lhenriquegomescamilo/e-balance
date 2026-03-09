@@ -5,8 +5,8 @@ import arrow.core.left
 import arrow.core.right
 import com.ebalance.investments.domain.InvestmentError
 import com.ebalance.investments.domain.StockPriceService
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
+import io.lettuce.core.api.sync.RedisCommands
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonArray
@@ -22,14 +22,20 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.util.concurrent.TimeUnit
+
+/** TTL for cached price entries: 1 hour in seconds. */
+private const val CACHE_TTL_SECONDS = 3_600L
+
+/** Wire-format for values stored in Redis. */
+@Serializable
+private data class CachedPriceData(
+    val currentPrice: Double,
+    val monthlyPrices: Map<String, Double>   // "YYYY-MM" → price
+)
 
 open class SerpApiStockPriceService(
     private val apiKey: String,
-    private val cache: Cache<String, Pair<Double, Map<YearMonth, Double>>> = Caffeine.newBuilder()
-        .expireAfterWrite(1, TimeUnit.HOURS)
-        .maximumSize(1_000)
-        .build()
+    private val redis: RedisCommands<String, String>
 ) : StockPriceService {
 
     private val log  = LoggerFactory.getLogger(SerpApiStockPriceService::class.java)
@@ -43,17 +49,17 @@ open class SerpApiStockPriceService(
         exchange: String,
         window: String
     ): Either<InvestmentError, Pair<Double, Map<YearMonth, Double>>> {
-        val cacheKey = "${ticker.uppercase()}:${exchange.uppercase()}:${window.uppercase()}"
+        val cacheKey = "serpapi:${ticker.uppercase()}:${exchange.uppercase()}:${window.uppercase()}"
 
-        cache.getIfPresent(cacheKey)?.let {
-            log.debug("Cache hit for $cacheKey")
+        readCache(cacheKey)?.let {
+            log.debug("Redis cache hit for $cacheKey")
             return it.right()
         }
 
         return runCatching { doFetch(ticker, exchange, window) }
             .fold(
                 onSuccess = { result ->
-                    cache.put(cacheKey, result)
+                    writeCache(cacheKey, result)
                     result.right()
                 },
                 onFailure = { e ->
@@ -64,6 +70,31 @@ open class SerpApiStockPriceService(
                 }
             )
     }
+
+    private fun readCache(key: String): Pair<Double, Map<YearMonth, Double>>? = runCatching {
+        val raw = redis.get(key) ?: return null
+        val cached = Json.decodeFromString(CachedPriceData.serializer(), raw)
+        cached.currentPrice to cached.monthlyPrices.mapKeys { (k, _) ->
+            val (year, month) = k.split("-")
+            YearMonth.of(year.toInt(), month.toInt())
+        }
+    }.getOrElse { e ->
+        log.warn("Redis read failed for $key — falling through to fetch: ${e.message}")
+        null
+    }
+
+    private fun writeCache(key: String, value: Pair<Double, Map<YearMonth, Double>>) =
+        runCatching {
+            val payload = CachedPriceData(
+                currentPrice  = value.first,
+                monthlyPrices = value.second.mapKeys { (ym, _) ->
+                    "%04d-%02d".format(ym.year, ym.monthValue)
+                }
+            )
+            redis.setex(key, CACHE_TTL_SECONDS, Json.encodeToString(CachedPriceData.serializer(), payload))
+        }.onFailure { e ->
+            log.warn("Redis write failed for $key — result will not be cached: ${e.message}")
+        }
 
     /**
      * Performs the actual HTTP call to SerpAPI. Extracted so tests can subclass
@@ -94,7 +125,6 @@ open class SerpApiStockPriceService(
             ?.jsonObject?.get("extracted_price")
             ?.jsonPrimitive?.doubleOrNull
             ?: run {
-                // Fallback: use the last price point from the graph
                 val fallback = root["graph"]?.jsonArray?.lastOrNull()
                     ?.jsonObject?.get("price")?.jsonPrimitive?.doubleOrNull
                 if (fallback != null) {
@@ -105,7 +135,6 @@ open class SerpApiStockPriceService(
                 )
             }
 
-        // Group graph data by YearMonth — last price in the month wins
         val monthlyPrices = mutableMapOf<YearMonth, Double>()
         root["graph"]?.jsonArray?.forEach { el ->
             val obj   = el.jsonObject

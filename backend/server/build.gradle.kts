@@ -35,7 +35,7 @@ dependencies {
     implementation(libs.flyway.database.postgresql)
     implementation(libs.arrow.core)
     implementation(libs.arrow.fx.stm)
-    implementation(libs.caffeine)
+    implementation(libs.lettuce.core)
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
     implementation(libs.poi)
@@ -46,6 +46,8 @@ dependencies {
     testImplementation(libs.kotest.assertions.arrow)
     testImplementation(libs.mockk)
     testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.testcontainers.redis)
+    testImplementation(libs.testcontainers.junit)
 }
 
 tasks.withType<Test>().configureEach {

@@ -1,5 +1,6 @@
 [versions]
-caffeine = "3.2.0"
+lettuce = "6.5.3.RELEASE"
+testcontainers = "1.20.4"
 exposed = "0.54.0"
 poi = "5.2.5"
 flyway = "10.10.0"
@@ -41,7 +42,9 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 kotest-assertions-arrow = { module = "io.kotest.extensions:kotest-assertions-arrow", version = "2.0.0" }
 arrow-core = { module = "io.arrow-kt:arrow-core", version = "2.0.1" }
-caffeine = { module = "com.github.ben-manes.caffeine:caffeine", version.ref = "caffeine" }
+lettuce-core = { module = "io.lettuce:lettuce-core", version.ref = "lettuce" }
+testcontainers-redis = { module = "com.redis:testcontainers-redis", version = "2.2.2" }
+testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 arrow-fx-stm = { module = "io.arrow-kt:arrow-fx-stm", version = "2.0.1" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
