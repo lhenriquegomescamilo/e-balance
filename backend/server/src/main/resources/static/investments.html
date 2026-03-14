@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>e-Balance — Investments</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' } },
+          keyframes: {
+            shimmer: { '0%': { backgroundPosition: '-200% 0' }, '100%': { backgroundPosition: '200% 0' } }
+          },
+          animation: { shimmer: 'shimmer 1.5s infinite linear' }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.48.0/dist/apexcharts.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <style>
+    *, *::before, *::after { transition: background-color 0.2s, border-color 0.2s, color 0.1s; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 3px; }
+
+    /* Pulse skeleton */
+    .sk { @apply bg-gray-200 dark:bg-gray-700 rounded animate-pulse; }
+  </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans antialiased">
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════════════════════════ -->
+<aside id="sidebar"
+  class="fixed top-0 left-0 z-40 h-screen w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-sm
+         transform -translate-x-full md:translate-x-0 transition-transform duration-300">
+
+  <div class="flex items-center gap-3 px-6 py-5 border-b border-gray-200 dark:border-gray-700">
+    <div class="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center shadow-lg">
+      <i class="fa-solid fa-scale-balanced text-white text-sm"></i>
+    </div>
+    <span class="text-lg font-bold tracking-tight">e-Balance</span>
+  </div>
+
+  <nav class="px-3 py-4 space-y-1">
+    <p class="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Main</p>
+    <a href="/static/index.html"
+       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+              text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+    </a>
+    <a href="/static/investments.html"
+       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+              bg-brand-500 text-white cursor-pointer">
+      <i class="fa-solid fa-chart-line w-5 text-center"></i> Investments
+    </a>
+    <a href="#"
+       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+              text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-receipt w-5 text-center"></i> Transactions
+    </a>
+    <a href="#"
+       class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+              text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-gear w-5 text-center"></i> Settings
+    </a>
+  </nav>
+
+  <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold">LC</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">L. Camilo</p>
+        <p class="text-xs text-gray-400 truncate">Admin</p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div id="sidebar-overlay" onclick="closeSidebar()"
+     class="fixed inset-0 z-30 bg-black/50 hidden md:hidden"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NAVBAR
+════════════════════════════════════════════════════════════════ -->
+<header class="fixed top-0 left-0 md:left-64 right-0 z-30 h-16 bg-white dark:bg-gray-900
+               border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-3 shadow-sm">
+  <button onclick="toggleSidebar()"
+          class="md:hidden p-2 rounded-lg text-gray-500 hover:bg-slate-100 dark:hover:bg-gray-800">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+  <div class="flex-1">
+    <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">Investment Portfolio</span>
+  </div>
+  <div class="flex items-center gap-2 ml-auto">
+    <button id="theme-toggle" onclick="toggleTheme()"
+            class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800"
+            title="Toggle light/dark mode">
+      <i id="icon-sun"  class="fa-solid fa-sun  hidden text-yellow-400"></i>
+      <i id="icon-moon" class="fa-solid fa-moon text-gray-500"></i>
+    </button>
+    <div class="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800">
+      <div class="w-7 h-7 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold">LC</div>
+      <span class="text-sm font-medium hidden sm:block">L. Camilo</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════════════════════════════ -->
+<main class="pt-16 md:pl-64 min-h-screen">
+  <div class="p-4 md:p-6 space-y-6 max-w-7xl">
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div>
+        <h1 class="text-2xl font-bold">Investment Portfolio</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Sector distribution &amp; unrealized P&amp;L tracker</p>
+      </div>
+      <!-- Error banner (hidden by default) -->
+      <div id="error-banner"
+           class="hidden inline-flex items-center gap-2 text-xs bg-red-50 dark:bg-red-900/20
+                  text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800
+                  px-3 py-1.5 rounded-full self-start sm:self-auto">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span id="error-message">Failed to load data.</span>
+      </div>
+    </div>
+
+    <!-- ── Summary Cards ── -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+      <!-- Total Invested -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Invested</span>
+          <div class="w-9 h-9 rounded-lg bg-brand-500/10 flex items-center justify-center">
+            <i class="fa-solid fa-coins text-brand-500 text-sm"></i>
+          </div>
+        </div>
+        <div id="sk-invested"   class="h-8 w-28 sk mb-1"></div>
+        <p  id="stat-invested"  class="text-2xl font-bold hidden">—</p>
+        <p class="text-xs text-gray-400 mt-1">Cost basis</p>
+      </div>
+
+      <!-- Current Value -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Current Value</span>
+          <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+            <i class="fa-solid fa-wallet text-blue-500 text-sm"></i>
+          </div>
+        </div>
+        <div id="sk-current"  class="h-8 w-28 sk mb-1"></div>
+        <p  id="stat-current" class="text-2xl font-bold text-blue-500 hidden">—</p>
+        <p class="text-xs text-gray-400 mt-1">Mark-to-market</p>
+      </div>
+
+      <!-- Total P&L -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Total P&amp;L</span>
+          <div class="w-9 h-9 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+            <i class="fa-solid fa-arrow-trend-up text-green-500 text-sm"></i>
+          </div>
+        </div>
+        <div id="sk-pnl"  class="h-8 w-28 sk mb-1"></div>
+        <p  id="stat-pnl" class="text-2xl font-bold hidden">—</p>
+        <p class="text-xs text-gray-400 mt-1">Unrealized gain/loss</p>
+      </div>
+
+      <!-- ROI -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Return (ROI)</span>
+          <div class="w-9 h-9 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+            <i class="fa-solid fa-percent text-green-500 text-sm"></i>
+          </div>
+        </div>
+        <div id="sk-roi"  class="h-8 w-20 sk mb-1"></div>
+        <p  id="stat-roi" class="text-2xl font-bold hidden">—</p>
+        <p class="text-xs text-gray-400 mt-1">vs. cost basis</p>
+      </div>
+
+    </div>
+
+    <!-- ── Charts Row ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Sector Distribution -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h5 class="text-base font-semibold text-gray-800 dark:text-gray-200">Sector Distribution</h5>
+          <span class="text-xs text-gray-400 dark:text-gray-500">By invested amount</span>
+        </div>
+
+        <!-- Skeleton checkboxes -->
+        <div id="sk-sector-cbs" class="flex flex-wrap gap-3 mb-4">
+          <div class="h-5 w-20 sk"></div>
+          <div class="h-5 w-14 sk"></div>
+          <div class="h-5 w-24 sk"></div>
+          <div class="h-5 w-12 sk"></div>
+          <div class="h-5 w-28 sk"></div>
+        </div>
+        <!-- Real checkboxes -->
+        <div id="sector-checkboxes" class="hidden flex-wrap gap-x-4 gap-y-2 mb-2"></div>
+
+        <!-- Skeleton donut -->
+        <div id="sk-sector-chart" role="status" class="animate-pulse flex flex-col items-center gap-4 py-4 mb-4">
+          <div class="relative w-48 h-48">
+            <div class="w-48 h-48 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+            <div class="absolute inset-10 rounded-full bg-white dark:bg-gray-900"></div>
+          </div>
+          <div class="flex gap-3">
+            <div class="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+            <div class="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+            <div class="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+          </div>
+          <span class="sr-only">Loading...</span>
+        </div>
+        <!-- Real chart -->
+        <div id="sector-donut-chart" class="hidden py-4 flex justify-center"></div>
+
+        <!-- Skeleton legend -->
+        <div id="sk-sector-legend" class="border-t border-gray-100 dark:border-gray-800 pt-4 space-y-2">
+          <div class="h-4 w-full sk"></div>
+          <div class="h-4 w-full sk"></div>
+          <div class="h-4 w-full sk"></div>
+          <div class="h-4 w-5/6 sk"></div>
+          <div class="h-4 w-4/6 sk"></div>
+        </div>
+        <!-- Real legend -->
+        <div id="sector-legend" class="hidden border-t border-gray-100 dark:border-gray-800 pt-4 space-y-2"></div>
+      </div>
+
+      <!-- P&L per Stock -->
+      <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6">
+        <div class="flex justify-between mb-1">
+          <div>
+            <div id="sk-pnl-header"  class="h-8 w-28 sk mb-1"></div>
+            <h5 id="stat-pnl-header" class="text-2xl font-bold text-gray-900 dark:text-white hidden">—</h5>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Unrealized P&amp;L by stock</p>
+          </div>
+          <div id="pnl-badge" class="hidden flex items-center gap-1.5 px-2.5 py-0.5 font-semibold self-start">
+            <i id="pnl-badge-icon" class="fa-solid fa-arrow-up w-4"></i>
+            <span id="pnl-badge-pct">—</span>
+          </div>
+        </div>
+
+        <!-- Skeleton chart -->
+        <div id="sk-pnl-chart" role="status" class="animate-pulse my-4">
+          <div class="flex items-end gap-1.5 h-64 px-2">
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:80%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:100%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:55%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:90%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:65%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:75%"></div>
+            <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:45%"></div>
+          </div>
+          <span class="sr-only">Loading...</span>
+        </div>
+        <!-- Real chart -->
+        <div id="pnl-bar-chart" class="hidden py-4 md:py-6"></div>
+
+        <div class="border-t border-gray-100 dark:border-gray-800 pt-4">
+          <p class="text-xs text-gray-400 dark:text-gray-500">
+            <i class="fa-solid fa-circle-info mr-1"></i>
+            Green = gain · Red = loss · sorted by P&amp;L
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Wallet Progress by Sector ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6">
+
+      <div class="flex justify-between mb-1">
+        <div>
+          <div id="sk-progress-header"  class="h-8 w-28 sk mb-1"></div>
+          <h5 id="progress-total" class="text-2xl font-bold text-gray-900 dark:text-white hidden">—</h5>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Portfolio value · by sector</p>
+        </div>
+        <div id="progress-badge"
+             class="hidden items-center gap-1 px-2.5 py-0.5 font-semibold self-start text-green-500">
+          <i id="progress-badge-icon" class="fa-solid fa-arrow-up w-4"></i>
+          <span id="progress-pct">—</span>
+        </div>
+      </div>
+
+      <!-- Skeleton chart -->
+      <div id="sk-progress-chart" role="status" class="animate-pulse my-4 md:my-6">
+        <div class="flex items-end gap-2 h-64 px-2">
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:55%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:70%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:45%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:80%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:65%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:90%"></div>
+          <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-t-sm" style="height:72%"></div>
+        </div>
+        <span class="sr-only">Loading...</span>
+      </div>
+      <!-- Real chart -->
+      <div id="wallet-progress-chart" class="hidden py-4 md:py-6"></div>
+
+      <div class="border-t border-gray-100 dark:border-gray-800 pt-4 flex justify-between items-center">
+        <!-- Period dropdown -->
+        <div class="relative">
+          <button id="progressPeriodBtn"
+                  data-dropdown-toggle="progressPeriodDropdown"
+                  data-dropdown-placement="bottom"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400
+                         hover:text-gray-800 dark:hover:text-white">
+            <span id="progressPeriodLabel">Last 6 months</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="progressPeriodDropdown"
+               class="z-10 hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg w-44">
+            <ul class="p-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <li><a href="#" onclick="setProgressPeriod('3m','Last 3 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 3 months</a></li>
+              <li><a href="#" onclick="setProgressPeriod('6m','Last 6 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 6 months</a></li>
+              <li><a href="#" onclick="setProgressPeriod('12m','Last 12 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 12 months</a></li>
+            </ul>
+          </div>
+        </div>
+        <a href="#" class="inline-flex items-center gap-1 text-sm font-medium text-brand-500 hover:text-brand-600">
+          Progress report
+          <svg class="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 12H5m14 0-4 4m4-4-4-4"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- ── Stock Price Evolution ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 md:p-6">
+
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h5 class="text-base font-semibold text-gray-800 dark:text-gray-200">Stock Price Evolution</h5>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Monthly close price per holding</p>
+        </div>
+        <!-- Period dropdown -->
+        <div class="relative">
+          <button id="stockPeriodBtn"
+                  data-dropdown-toggle="stockPeriodDropdown"
+                  data-dropdown-placement="bottom"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400
+                         hover:text-gray-800 dark:hover:text-white">
+            <span id="stockPeriodLabel">Last 6 months</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="stockPeriodDropdown"
+               class="z-10 hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg w-44">
+            <ul class="p-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <li><a href="#" onclick="setStockPeriod('3M','Last 3 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 3 months</a></li>
+              <li><a href="#" onclick="setStockPeriod('6M','Last 6 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 6 months</a></li>
+              <li><a href="#" onclick="setStockPeriod('1Y','Last 12 months'); return false;"
+                     class="flex items-center w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700">Last 12 months</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skeleton cards -->
+      <div id="sk-stock-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hidden sm:block">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+        <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 space-y-3 hidden lg:block">
+          <div class="flex justify-between"><div class="h-6 w-16 sk rounded-md"></div><div class="h-5 w-12 sk"></div></div>
+          <div class="h-7 w-24 sk"></div>
+          <div class="h-16 sk rounded-lg"></div>
+          <div class="h-4 w-32 sk"></div>
+        </div>
+      </div>
+
+      <!-- Real cards grid -->
+      <div id="stock-cards-grid" class="hidden grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+
+    </div>
+
+    <!-- ── Holdings Table ── -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center gap-3">
+          <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Holdings</h2>
+          <div id="sk-holdings-count" class="h-5 w-20 sk"></div>
+          <span id="holdings-count"
+                class="hidden text-xs bg-slate-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">
+            — positions
+          </span>
+        </div>
+        <button onclick="openAssetDialog()"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg
+                       bg-brand-500 hover:bg-brand-600 text-white transition-colors">
+          <i class="fa-solid fa-plus"></i> Add Position
+        </button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="text-xs uppercase text-gray-400 dark:text-gray-500 bg-slate-50 dark:bg-gray-800/50">
+            <tr>
+              <th class="px-5 py-3">Ticker</th>
+              <th class="px-5 py-3">Name</th>
+              <th class="px-5 py-3">Sector</th>
+              <th class="px-5 py-3 text-right">Invested</th>
+              <th class="px-5 py-3 text-right">Current</th>
+              <th class="px-5 py-3 text-right">P&amp;L (€)</th>
+              <th class="px-5 py-3 text-right">Return</th>
+              <th class="px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody id="holdings-body" class="divide-y divide-gray-100 dark:divide-gray-800"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     ASSET DIALOG (Add / Edit position)
+════════════════════════════════════════════════════════════════ -->
+<div id="asset-dialog-backdrop"
+     class="fixed inset-0 z-50 hidden bg-black/50 flex items-center justify-center p-4"
+     onclick="closeAssetDialog(event)">
+
+  <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700"
+       onclick="event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+      <h3 id="dialog-title" class="text-base font-semibold text-gray-800 dark:text-gray-200">Add Position</h3>
+      <button onclick="closeAssetDialog()"
+              class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800">
+        <i class="fa-solid fa-xmark text-sm"></i>
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form id="asset-form" onsubmit="submitAssetForm(event)" class="px-6 py-5 space-y-4">
+
+      <!-- Ticker -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Ticker <span class="text-red-500">*</span></label>
+        <input id="f-ticker" type="text" required maxlength="10" placeholder="e.g. AAPL"
+               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                      bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                      focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase" />
+      </div>
+
+      <!-- Name -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Company Name <span class="text-red-500">*</span></label>
+        <input id="f-name" type="text" required maxlength="80" placeholder="e.g. Apple Inc."
+               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                      bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                      focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+
+      <!-- Sector + Exchange row -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Sector <span class="text-red-500">*</span></label>
+          <input id="f-sector" type="text" required maxlength="60" placeholder="e.g. Technology"
+                 list="sector-suggestions"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                        bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                        focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          <datalist id="sector-suggestions"></datalist>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Exchange <span class="text-red-500">*</span></label>
+          <input id="f-exchange" type="text" required maxlength="20" placeholder="e.g. NASDAQ"
+                 list="exchange-suggestions"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                        bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                        focus:outline-none focus:ring-2 focus:ring-brand-500 uppercase" />
+          <datalist id="exchange-suggestions">
+            <option value="NASDAQ">
+            <option value="NYSE">
+            <option value="EURONEXT">
+            <option value="XETRA">
+            <option value="LSE">
+            <option value="BMV">
+          </datalist>
+        </div>
+      </div>
+
+      <!-- Ticker/Exchange validation status -->
+      <div id="ticker-validation-status" class="hidden -mt-2 flex items-center gap-1.5 text-xs px-1"></div>
+
+      <!-- Amounts row -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Invested (€) <span class="text-red-500">*</span></label>
+          <input id="f-invested" type="number" required min="0" step="0.01" placeholder="0.00"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                        bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                        focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Current Value (€)</label>
+          <input id="f-current" type="number" min="0" step="0.01" placeholder="0.00"
+                 class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                        bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                        focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        </div>
+      </div>
+
+      <!-- Purchase Date -->
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+          Purchase Date
+          <span class="ml-1 text-gray-400 dark:text-gray-500 font-normal">(optional — used for P&amp;L tracking)</span>
+        </label>
+        <input id="f-purchased-at" type="date"
+               class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600
+                      bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-200
+                      focus:outline-none focus:ring-2 focus:ring-brand-500" />
+      </div>
+
+      <!-- Error -->
+      <p id="dialog-error" class="hidden text-xs text-red-500 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg"></p>
+
+      <!-- Footer -->
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeAssetDialog()"
+                class="px-4 py-2 text-sm font-medium rounded-lg text-gray-600 dark:text-gray-400
+                       hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors">
+          Cancel
+        </button>
+        <button id="dialog-submit" type="submit"
+                class="px-5 py-2 text-sm font-semibold rounded-lg bg-brand-500 hover:bg-brand-600
+                       text-white transition-colors flex items-center gap-2">
+          <i id="dialog-submit-icon" class="fa-solid fa-floppy-disk"></i>
+          <span id="dialog-submit-label">Save</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONSTANTS
+════════════════════════════════════════════════════════════════ */
+const API_BASE = '/api/v1';
+
+const PALETTE = [
+  '#6366f1','#06b6d4','#f59e0b','#10b981','#ef4444',
+  '#8b5cf6','#ec4899','#14b8a6','#f97316','#3b82f6',
+  '#84cc16','#e11d48','#0ea5e9','#a78bfa','#34d399'
+];
+
+// Sector→color map built once after first API response (stable across re-renders)
+let sectorColorMap = {};
+
+const fmtEur = v => '€ ' + Math.abs(v).toLocaleString('pt-PT', { minimumFractionDigits: 0 });
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME
+════════════════════════════════════════════════════════════════ */
+const html = document.documentElement;
+
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && prefersDark)) html.classList.add('dark');
+  updateThemeIcons();
+}
+
+function toggleTheme() {
+  html.classList.toggle('dark');
+  localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeIcons();
+  if (_lastSummaryData)  { renderSectorChart(_lastSummaryData.sectors); renderPnlChart(_lastHoldingsData.holdings); }
+  if (_lastProgressData) renderProgressChart(_lastProgressData);
+  if (_stockPriceData)   renderStockCards(_stockPriceData.stocks);
+}
+
+function updateThemeIcons() {
+  const dark = html.classList.contains('dark');
+  document.getElementById('icon-sun').classList.toggle('hidden', !dark);
+  document.getElementById('icon-moon').classList.toggle('hidden', dark);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR
+════════════════════════════════════════════════════════════════ */
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SKELETON HELPERS
+════════════════════════════════════════════════════════════════ */
+const SK_IDS   = ['sk-invested','sk-current','sk-pnl','sk-roi',
+                  'sk-sector-cbs','sk-sector-chart','sk-sector-legend',
+                  'sk-pnl-header','sk-pnl-chart',
+                  'sk-progress-header','sk-progress-chart',
+                  'sk-holdings-count'];
+const REAL_IDS = ['stat-invested','stat-current','stat-pnl','stat-roi',
+                  'sector-checkboxes','sector-donut-chart','sector-legend',
+                  'stat-pnl-header','pnl-bar-chart','pnl-badge',
+                  'progress-total','wallet-progress-chart','progress-badge',
+                  'holdings-count'];
+
+function showSkeletons() {
+  SK_IDS.forEach(id   => document.getElementById(id)?.classList.remove('hidden'));
+  REAL_IDS.forEach(id => document.getElementById(id)?.classList.add('hidden'));
+  renderHoldingsSkeleton();
+}
+
+function hideSkeletons() {
+  SK_IDS.forEach(id   => document.getElementById(id)?.classList.add('hidden'));
+  REAL_IDS.forEach(id => document.getElementById(id)?.classList.remove('hidden'));
+  // sector-checkboxes needs flex, not block
+  document.getElementById('sector-checkboxes')?.classList.replace('hidden', 'flex');
+  document.getElementById('progress-badge')?.classList.replace('hidden', 'flex');
+  document.getElementById('pnl-badge')?.classList.replace('hidden', 'flex');
+}
+
+function renderHoldingsSkeleton() {
+  const skRow = () => `
+    <tr>
+      <td class="px-5 py-3"><div class="h-6 w-14 sk"></div></td>
+      <td class="px-5 py-3"><div class="h-5 w-32 sk"></div></td>
+      <td class="px-5 py-3"><div class="h-5 w-24 sk"></div></td>
+      <td class="px-5 py-3 text-right"><div class="h-5 w-16 sk ml-auto"></div></td>
+      <td class="px-5 py-3 text-right"><div class="h-5 w-16 sk ml-auto"></div></td>
+      <td class="px-5 py-3 text-right"><div class="h-5 w-16 sk ml-auto"></div></td>
+      <td class="px-5 py-3 text-right"><div class="h-5 w-12 sk ml-auto"></div></td>
+      <td class="px-5 py-3"><div class="h-6 w-6 sk ml-auto rounded-md"></div></td>
+    </tr>`;
+  document.getElementById('holdings-body').innerHTML = Array.from({ length: 6 }, skRow).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   API FETCH
+════════════════════════════════════════════════════════════════ */
+async function apiFetch(path) {
+  const res = await fetch(path);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+function showError(msg) {
+  document.getElementById('error-message').textContent = msg;
+  document.getElementById('error-banner').classList.remove('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SUMMARY CARDS
+════════════════════════════════════════════════════════════════ */
+function updateSummaryCards(summary) {
+  const isPos = summary.totalPnl >= 0;
+
+  setText('stat-invested', fmtEur(summary.totalInvested));
+  setText('stat-current',  fmtEur(summary.totalCurrentValue));
+
+  const pnlEl = document.getElementById('stat-pnl');
+  pnlEl.textContent = (isPos ? '+ ' : '- ') + fmtEur(summary.totalPnl);
+  pnlEl.className   = 'text-2xl font-bold ' + (isPos ? 'text-green-500' : 'text-red-500');
+
+  const roiEl = document.getElementById('stat-roi');
+  roiEl.textContent = (isPos ? '+' : '') + summary.roi.toFixed(2) + '%';
+  roiEl.className   = 'text-2xl font-bold ' + (isPos ? 'text-green-500' : 'text-red-500');
+}
+
+function setText(id, val) { document.getElementById(id).textContent = val; }
+
+/* ═══════════════════════════════════════════════════════════════
+   SECTOR DISTRIBUTION — donut + checkboxes
+════════════════════════════════════════════════════════════════ */
+let sectorChartInstance = null;
+const activeSectors     = new Set();
+
+function buildSectorCheckboxes(sectors) {
+  const container = document.getElementById('sector-checkboxes');
+  container.innerHTML = '';
+  activeSectors.clear();
+
+  sectors.forEach((s, i) => {
+    const color = sectorColorMap[s.name];
+    activeSectors.add(s.name);
+
+    const label = document.createElement('label');
+    label.className = 'flex items-center gap-2 cursor-pointer select-none';
+
+    const cb = document.createElement('input');
+    cb.type      = 'checkbox';
+    cb.checked   = true;
+    cb.value     = s.name;
+    cb.className = 'w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-500 focus:ring-brand-500 bg-white dark:bg-gray-700 cursor-pointer';
+    cb.addEventListener('change', () => {
+      if (cb.checked) activeSectors.add(s.name);
+      else            activeSectors.delete(s.name);
+      renderSectorChart(_lastSummaryData.sectors);
+    });
+
+    const dot  = Object.assign(document.createElement('span'), {
+      className: 'w-3 h-3 rounded-full flex-shrink-0'
+    });
+    dot.style.backgroundColor = color;
+
+    const text = Object.assign(document.createElement('span'), {
+      className: 'text-sm font-medium text-gray-700 dark:text-gray-300',
+      textContent: s.name
+    });
+
+    label.append(cb, dot, text);
+    container.appendChild(label);
+  });
+}
+
+function renderSectorChart(sectors) {
+  const dark     = html.classList.contains('dark');
+  const filtered = sectors.filter(s => activeSectors.has(s.name));
+  const labels   = filtered.map(s => s.name);
+  const values   = filtered.map(s => s.invested);
+  const colors   = filtered.map(s => sectorColorMap[s.name]);
+  const totalInv = values.reduce((a, b) => a + b, 0);
+
+  if (sectorChartInstance) { sectorChartInstance.destroy(); sectorChartInstance = null; }
+
+  const chartEl = document.getElementById('sector-donut-chart');
+  if (filtered.length === 0) {
+    chartEl.innerHTML = '<p class="text-center text-sm text-gray-400 py-10">No sectors selected.</p>';
+    document.getElementById('sector-legend').innerHTML = '';
+    return;
+  }
+
+  sectorChartInstance = new ApexCharts(chartEl, {
+    series: values,
+    chart:  { type: 'donut', height: 260, background: 'transparent', toolbar: { show: false } },
+    labels,
+    colors,
+    legend:      { show: false },
+    dataLabels:  { enabled: false },
+    stroke:      { width: 2, colors: [dark ? '#111827' : '#f8fafc'] },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: '70%',
+          labels: {
+            show: true,
+            total: {
+              show: true, label: 'Invested',
+              color: dark ? '#e5e7eb' : '#374151',
+              formatter: w => fmtEur(w.globals.seriesTotals.reduce((a, b) => a + b, 0))
+            },
+            value: { color: dark ? '#e5e7eb' : '#374151', formatter: v => fmtEur(+v) }
+          }
+        }
+      }
+    },
+    tooltip: { y: { formatter: v => fmtEur(v) } },
+    theme:   { mode: dark ? 'dark' : 'light' }
+  });
+  sectorChartInstance.render();
+
+  // Legend
+  document.getElementById('sector-legend').innerHTML = filtered.map(s => {
+    const color  = sectorColorMap[s.name];
+    const pct    = totalInv > 0 ? (s.invested / totalInv * 100).toFixed(1) : '0.0';
+    const isPos  = s.pnl >= 0;
+    return `
+      <div class="flex items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${color}"></span>
+          <span class="text-gray-600 dark:text-gray-400 truncate">${s.name}</span>
+        </div>
+        <div class="flex items-center gap-3 shrink-0">
+          <span class="text-gray-500 dark:text-gray-400">${fmtEur(s.invested)}</span>
+          <span class="font-medium w-12 text-right ${isPos ? 'text-green-500' : 'text-red-500'}">
+            ${isPos ? '+' : ''}${s.roi.toFixed(1)}%
+          </span>
+          <span class="font-semibold text-gray-700 dark:text-gray-300 w-10 text-right">${pct}%</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P&L PER STOCK — bar chart
+════════════════════════════════════════════════════════════════ */
+let pnlChartInstance = null;
+
+function renderPnlChart(holdings) {
+  const dark      = html.classList.contains('dark');
+  const textColor = dark ? '#9ca3af' : '#6b7280';
+
+  const sorted = [...holdings].sort((a, b) => b.pnl - a.pnl);
+  const labels = sorted.map(h => h.ticker);
+  const values = sorted.map(h => parseFloat(h.pnl.toFixed(2)));
+  const colors = values.map(v => v >= 0 ? '#10b981' : '#ef4444');
+
+  // Update header badge
+  const totalPnl = holdings.reduce((s, h) => s + h.pnl, 0);
+  const invested  = holdings.reduce((s, h) => s + h.invested, 0);
+  const roi       = invested > 0 ? (totalPnl / invested) * 100 : 0;
+  const isPos     = totalPnl >= 0;
+
+  setText('stat-pnl-header', (isPos ? '+ ' : '- ') + fmtEur(totalPnl));
+  document.getElementById('stat-pnl-header').className = 'text-2xl font-bold ' + (isPos ? 'text-green-500' : 'text-red-500');
+  setText('pnl-badge-pct', (isPos ? '+' : '') + roi.toFixed(1) + '%');
+  document.getElementById('pnl-badge').className = 'flex items-center gap-1.5 px-2.5 py-0.5 font-semibold self-start ' + (isPos ? 'text-green-500' : 'text-red-500');
+  document.getElementById('pnl-badge-icon').className = 'fa-solid ' + (isPos ? 'fa-arrow-up' : 'fa-arrow-down') + ' w-4';
+
+  if (pnlChartInstance) { pnlChartInstance.destroy(); pnlChartInstance = null; }
+
+  pnlChartInstance = new ApexCharts(document.getElementById('pnl-bar-chart'), {
+    series: [{ name: 'P&L (€)', data: values }],
+    chart: {
+      type: 'bar', height: 280, background: 'transparent',
+      toolbar: { show: false }, animations: { enabled: true, speed: 400 }
+    },
+    plotOptions: { bar: { borderRadius: 4, distributed: true, dataLabels: { position: 'top' } } },
+    dataLabels: {
+      enabled: true, offsetY: -18,
+      style: { fontSize: '10px', colors: [textColor], fontWeight: '600' },
+      formatter: v => (v >= 0 ? '+' : '') + '€' + Math.abs(v).toLocaleString('pt-PT', { minimumFractionDigits: 0 })
+    },
+    xaxis: {
+      categories: labels,
+      labels: { style: { fontSize: '11px', colors: textColor } },
+      axisBorder: { show: false }, axisTicks: { show: false }
+    },
+    yaxis: {
+      labels: {
+        style: { fontSize: '10px', colors: textColor },
+        formatter: v => (v >= 0 ? '+' : '') + '€' + Math.abs(v).toLocaleString('pt-PT', { minimumFractionDigits: 0 })
+      }
+    },
+    colors,
+    legend: { show: false },
+    grid: {
+      borderColor: dark ? '#1f2937' : '#f1f5f9', strokeDashArray: 4,
+      yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } }
+    },
+    tooltip: { y: { formatter: v => (v >= 0 ? '+' : '') + '€ ' + Math.abs(v).toLocaleString('pt-PT', { minimumFractionDigits: 2 }) } },
+    theme: { mode: dark ? 'dark' : 'light' }
+  });
+  pnlChartInstance.render();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   WALLET PROGRESS — multi-line area chart
+════════════════════════════════════════════════════════════════ */
+let progressChartInstance  = null;
+let _lastProgressData      = null;
+let currentProgressPeriod  = '6m';
+
+function setProgressPeriod(period, label) {
+  currentProgressPeriod = period;
+  document.getElementById('progressPeriodLabel').textContent = label;
+  loadProgress(period);
+}
+
+function renderProgressChart(data) {
+  _lastProgressData = data;
+
+  const dark      = html.classList.contains('dark');
+  const textColor = dark ? '#9ca3af' : '#6b7280';
+  const gridColor = dark ? '#374151' : '#f1f5f9';
+
+  // Compute totals for header badge
+  const totalsPerMonth = data.months.map((_, mi) =>
+    data.series.reduce((sum, s) => sum + (s.values[mi] ?? 0), 0)
+  );
+  const first     = totalsPerMonth[0] ?? 0;
+  const last      = totalsPerMonth[totalsPerMonth.length - 1] ?? 0;
+  const growthPct = first > 0 ? (((last - first) / first) * 100).toFixed(1) : '0.0';
+  const isPos     = last >= first;
+
+  setText('progress-total', fmtEur(last));
+  setText('progress-pct', (isPos ? '+' : '') + growthPct + '%');
+  document.getElementById('progress-badge').className =
+    'flex items-center gap-1 px-2.5 py-0.5 font-semibold self-start ' + (isPos ? 'text-green-500' : 'text-red-500');
+  document.getElementById('progress-badge-icon').className =
+    'fa-solid ' + (isPos ? 'fa-arrow-up' : 'fa-arrow-down') + ' w-4';
+
+  const apexSeries = data.series.map(s => ({
+    name: s.sector,
+    data: s.values.map(v => parseFloat(v.toFixed(2))),
+    color: sectorColorMap[s.sector] ?? PALETTE[data.series.indexOf(s) % PALETTE.length]
+  }));
+
+  if (progressChartInstance) { progressChartInstance.destroy(); progressChartInstance = null; }
+
+  progressChartInstance = new ApexCharts(
+    document.getElementById('wallet-progress-chart'),
+    {
+      series: apexSeries,
+      chart: {
+        type: 'area', height: 300, background: 'transparent',
+        toolbar: { show: false }, zoom: { enabled: false },
+        animations: { enabled: true, speed: 400 }
+      },
+      dataLabels: { enabled: false },
+      stroke:     { curve: 'smooth', width: 2 },
+      fill: {
+        type: 'gradient',
+        gradient: { shadeIntensity: 1, opacityFrom: 0.2, opacityTo: 0.02, stops: [0, 100] }
+      },
+      xaxis: {
+        categories: data.months,
+        labels: { style: { fontSize: '11px', colors: textColor } },
+        axisBorder: { show: false }, axisTicks: { show: false }
+      },
+      yaxis: {
+        labels: {
+          style: { fontSize: '11px', colors: textColor },
+          formatter: v => '€ ' + (v / 1000).toFixed(0) + 'k'
+        }
+      },
+      legend: {
+        show: true, position: 'top', horizontalAlign: 'left',
+        fontSize: '12px', labels: { colors: dark ? '#d1d5db' : '#374151' }
+      },
+      grid: { borderColor: gridColor, strokeDashArray: 4, yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
+      tooltip: {
+        theme: dark ? 'dark' : 'light',
+        y: { formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 0 }) },
+        shared: true, intersect: false
+      },
+      theme: { mode: dark ? 'dark' : 'light' }
+    }
+  );
+  progressChartInstance.render();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOLDINGS TABLE
+════════════════════════════════════════════════════════════════ */
+function renderHoldings(holdings) {
+  setText('holdings-count', `${holdings.length} positions`);
+
+  document.getElementById('holdings-body').innerHTML = holdings.map(h => {
+    const isPos = h.pnl >= 0;
+    const color = sectorColorMap[h.sector] ?? '#6366f1';
+    return `
+      <tr class="hover:bg-slate-50 dark:hover:bg-gray-800/50 transition-colors">
+        <td class="px-5 py-3">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold"
+                style="background:${color}22; color:${color}; border:1px solid ${color}44">
+            ${h.ticker}
+          </span>
+        </td>
+        <td class="px-5 py-3 text-gray-600 dark:text-gray-400 max-w-[180px] truncate">${h.name}</td>
+        <td class="px-5 py-3 text-xs text-gray-500 dark:text-gray-400">${h.sector}</td>
+        <td class="px-5 py-3 text-right text-gray-600 dark:text-gray-400 whitespace-nowrap">${fmtEur(h.invested)}</td>
+        <td class="px-5 py-3 text-right font-medium whitespace-nowrap">${fmtEur(h.currentValue)}</td>
+        <td class="px-5 py-3 text-right font-semibold whitespace-nowrap ${isPos ? 'text-green-500' : 'text-red-500'}">
+          ${isPos ? '+' : '-'} ${fmtEur(h.pnl)}
+        </td>
+        <td class="px-5 py-3 text-right">
+          <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full
+                       ${isPos ? 'bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                                : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'}">
+            <i class="fa-solid ${isPos ? 'fa-arrow-up' : 'fa-arrow-down'} text-[10px]"></i>
+            ${isPos ? '+' : ''}${h.roi.toFixed(2)}%
+          </span>
+        </td>
+        <td class="px-5 py-3 text-right">
+          <button onclick="openAssetDialog(${JSON.stringify(h)})"
+                  class="p-1.5 rounded-lg text-gray-400 hover:text-brand-500 hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors"
+                  title="Edit position">
+            <i class="fa-solid fa-pen-to-square text-xs"></i>
+          </button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DATA LOADING
+════════════════════════════════════════════════════════════════ */
+let _lastSummaryData  = null;
+let _lastHoldingsData = null;
+
+async function loadPortfolio() {
+  const [summaryData, holdingsData] = await Promise.all([
+    apiFetch(`${API_BASE}/investments/summary`),
+    apiFetch(`${API_BASE}/investments/holdings`)
+  ]);
+
+  _lastSummaryData  = summaryData;
+  _lastHoldingsData = holdingsData;
+
+  // Build stable sector→colour map (sorted alphabetically = DB order)
+  const sortedSectorNames = [...new Set(holdingsData.holdings.map(h => h.sector))].sort();
+  sortedSectorNames.forEach((name, i) => { sectorColorMap[name] = PALETTE[i % PALETTE.length]; });
+
+  updateSummaryCards(summaryData.summary);
+  buildSectorCheckboxes(summaryData.sectors);
+  renderSectorChart(summaryData.sectors);
+  renderPnlChart(holdingsData.holdings);
+  renderHoldings(holdingsData.holdings);
+}
+
+async function loadProgress(period = '6m') {
+  const skChart  = document.getElementById('sk-progress-chart');
+  const skHeader = document.getElementById('sk-progress-header');
+  const chart    = document.getElementById('wallet-progress-chart');
+  const total    = document.getElementById('progress-total');
+  const badge    = document.getElementById('progress-badge');
+
+  // Show skeleton, hide real content
+  skChart?.classList.remove('hidden');
+  skHeader?.classList.remove('hidden');
+  chart?.classList.add('hidden');
+  total?.classList.add('hidden');
+  badge?.classList.add('hidden');
+
+  try {
+    const data = await apiFetch(`${API_BASE}/investments/progress?period=${period}`);
+    renderProgressChart(data);
+    skChart?.classList.add('hidden');
+    skHeader?.classList.add('hidden');
+    chart?.classList.remove('hidden');
+    total?.classList.remove('hidden');
+    badge?.classList.remove('hidden');
+  } catch (e) {
+    skChart?.classList.add('hidden');
+    skHeader?.classList.add('hidden');
+    chart?.classList.remove('hidden');
+    chart.innerHTML = '<p class="text-center text-sm text-gray-400 py-10">Could not load progress data.</p>';
+    console.error('Progress chart failed:', e);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ASSET DIALOG — ticker/exchange validation
+════════════════════════════════════════════════════════════════ */
+
+// null = not yet validated | true = valid | false = invalid
+let _tickerValidState = null;
+
+function setValidationStatus(state, message) {
+  const el = document.getElementById('ticker-validation-status');
+  el.classList.remove('hidden', 'text-green-600', 'text-red-500', 'text-gray-400',
+                       'dark:text-green-400', 'dark:text-red-400', 'dark:text-gray-500');
+  if (state === 'loading') {
+    el.classList.add('text-gray-400', 'dark:text-gray-500');
+    el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>' + message + '</span>';
+  } else if (state === 'valid') {
+    el.classList.add('text-green-600', 'dark:text-green-400');
+    el.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>' + message + '</span>';
+  } else if (state === 'invalid') {
+    el.classList.add('text-red-500', 'dark:text-red-400');
+    el.innerHTML = '<i class="fa-solid fa-circle-xmark"></i><span>' + message + '</span>';
+  }
+  el.classList.remove('hidden');
+}
+
+function clearValidationStatus() {
+  _tickerValidState = null;
+  const el = document.getElementById('ticker-validation-status');
+  el.classList.add('hidden');
+  el.innerHTML = '';
+}
+
+async function validateTicker() {
+  const ticker   = document.getElementById('f-ticker').value.trim().toUpperCase();
+  const exchange = document.getElementById('f-exchange').value.trim().toUpperCase();
+
+  if (!ticker || !exchange) { clearValidationStatus(); return; }
+
+  setValidationStatus('loading', 'Checking ticker…');
+  _tickerValidState = null;
+
+  try {
+    const res = await fetch(`${API_BASE}/investments/assets/validate?ticker=${encodeURIComponent(ticker)}&exchange=${encodeURIComponent(exchange)}`);
+    const data = await res.json();
+    if (data.exists) {
+      _tickerValidState = true;
+      setValidationStatus('valid', `${ticker} found on ${exchange}`);
+    } else {
+      _tickerValidState = false;
+      setValidationStatus('invalid', `${ticker} not found on ${exchange} — check ticker and exchange`);
+    }
+  } catch {
+    // Network error — don't block the user, just clear the status
+    clearValidationStatus();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ASSET DIALOG
+════════════════════════════════════════════════════════════════ */
+function openAssetDialog(holding = null) {
+  const isEdit = holding !== null;
+  document.getElementById('dialog-title').textContent = isEdit ? 'Edit Position' : 'Add Position';
+  document.getElementById('dialog-submit-label').textContent = isEdit ? 'Save Changes' : 'Save';
+  document.getElementById('dialog-error').classList.add('hidden');
+  clearValidationStatus();
+
+  // Populate sector suggestions from loaded data
+  const sectors = _lastSummaryData
+    ? [...new Set(_lastSummaryData.sectors.map(s => s.name))].sort()
+    : [];
+  document.getElementById('sector-suggestions').innerHTML =
+    sectors.map(s => `<option value="${s}">`).join('');
+
+  if (isEdit) {
+    document.getElementById('f-ticker').value   = holding.ticker;
+    document.getElementById('f-ticker').readOnly = true;
+    document.getElementById('f-ticker').classList.add('opacity-60', 'cursor-not-allowed');
+    document.getElementById('f-name').value     = holding.name;
+    document.getElementById('f-sector').value   = holding.sector;
+    document.getElementById('f-exchange').value = holding.exchange || 'NASDAQ';
+    document.getElementById('f-invested').value     = holding.invested;
+    document.getElementById('f-current').value       = holding.currentValue;
+    document.getElementById('f-purchased-at').value  = holding.purchasedAt ?? '';
+    // In edit mode skip validation — ticker is already known to exist
+    _tickerValidState = true;
+  } else {
+    document.getElementById('asset-form').reset();
+    document.getElementById('f-ticker').readOnly = false;
+    document.getElementById('f-ticker').classList.remove('opacity-60', 'cursor-not-allowed');
+    document.getElementById('f-exchange').value = 'NASDAQ';
+    document.getElementById('f-purchased-at').value = '';
+  }
+
+  // Wire blur events — validate when user finishes entering ticker or exchange
+  const tickerEl   = document.getElementById('f-ticker');
+  const exchangeEl = document.getElementById('f-exchange');
+  tickerEl.onblur   = () => { if (!isEdit) validateTicker(); };
+  exchangeEl.onblur = () => { if (!isEdit) validateTicker(); };
+
+  document.getElementById('asset-dialog-backdrop').classList.remove('hidden');
+  setTimeout(() => document.getElementById('f-ticker').focus(), 50);
+}
+
+function closeAssetDialog(e) {
+  if (e && e.target !== document.getElementById('asset-dialog-backdrop')) return;
+  document.getElementById('asset-dialog-backdrop').classList.add('hidden');
+}
+
+async function submitAssetForm(e) {
+  e.preventDefault();
+
+  const ticker      = document.getElementById('f-ticker').value.trim().toUpperCase();
+  const name        = document.getElementById('f-name').value.trim();
+  const sector      = document.getElementById('f-sector').value.trim();
+  const exchange    = document.getElementById('f-exchange').value.trim().toUpperCase();
+  const invested    = parseFloat(document.getElementById('f-invested').value) || 0;
+  const current     = parseFloat(document.getElementById('f-current').value) || 0;
+  const purchasedAt = document.getElementById('f-purchased-at').value || null;
+
+  const errorEl  = document.getElementById('dialog-error');
+  const submitBtn = document.getElementById('dialog-submit');
+  const icon     = document.getElementById('dialog-submit-icon');
+
+  errorEl.classList.add('hidden');
+
+  // Block save if the ticker was explicitly marked invalid by the validation check
+  if (_tickerValidState === false) {
+    errorEl.textContent = `${ticker} was not found on ${exchange}. Please verify the ticker and exchange before saving.`;
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  icon.className = 'fa-solid fa-spinner fa-spin';
+
+  try {
+    const res = await fetch(`${API_BASE}/investments/assets/${encodeURIComponent(ticker)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, sector, exchange, investedAmount: invested, currentValue: current, purchasedAt })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+
+    document.getElementById('asset-dialog-backdrop').classList.add('hidden');
+
+    // Reload all portfolio data to reflect the change
+    showSkeletons();
+    try {
+      await Promise.all([loadPortfolio(), loadProgress(currentProgressPeriod)]);
+    } finally {
+      hideSkeletons();
+    }
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove('hidden');
+  } finally {
+    submitBtn.disabled = false;
+    icon.className = 'fa-solid fa-floppy-disk';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STOCK PRICE CARDS
+════════════════════════════════════════════════════════════════ */
+let _stockPriceData      = null;
+let currentStockWindow   = '6M';
+const stockChartInstances = {};
+
+function setStockPeriod(window, label) {
+  currentStockWindow = window;
+  document.getElementById('stockPeriodLabel').textContent = label;
+  Object.values(stockChartInstances).forEach(c => c?.destroy());
+  Object.keys(stockChartInstances).forEach(k => delete stockChartInstances[k]);
+  loadStockPriceHistory(window);
+}
+
+async function loadStockPriceHistory(window = '6M') {
+  const skeleton   = document.getElementById('sk-stock-cards');
+  const grid       = document.getElementById('stock-cards-grid');
+
+  skeleton?.classList.remove('hidden');
+  grid?.classList.add('hidden');
+  grid?.classList.remove('grid');
+
+  try {
+    const data = await apiFetch(`${API_BASE}/investments/stocks/price-history?window=${window}`);
+    _stockPriceData = data;
+    renderStockCards(data.stocks);
+    skeleton?.classList.add('hidden');
+    grid?.classList.remove('hidden');
+    grid?.classList.add('grid');
+  } catch (e) {
+    skeleton?.classList.add('hidden');
+    grid?.classList.remove('hidden');
+    grid?.classList.add('grid');
+    grid.innerHTML = '<p class="col-span-full text-center text-sm text-gray-400 py-10">Could not load stock price data.</p>';
+    console.error('Stock price history failed:', e);
+  }
+}
+
+function renderStockCards(stocks) {
+  Object.values(stockChartInstances).forEach(c => c?.destroy());
+  Object.keys(stockChartInstances).forEach(k => delete stockChartInstances[k]);
+
+  const grid = document.getElementById('stock-cards-grid');
+
+  if (!stocks || stocks.length === 0) {
+    grid.innerHTML = '<p class="col-span-full text-center text-sm text-gray-400 py-10">No stock price data available.</p>';
+    return;
+  }
+
+  const fmtPrice = v => v.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtQty   = q => q.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+  grid.innerHTML = stocks.map(s => {
+    const isPricePos = s.changePct >= 0;
+    const isPnlPos   = s.pnl >= 0;
+    const color      = sectorColorMap[s.sector] ?? '#6366f1';
+    const qty        = s.qty;
+    return `
+      <div class="bg-slate-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+
+        <!-- Header: ticker + price change % -->
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold mb-1"
+                  style="background:${color}22; color:${color}; border:1px solid ${color}44">
+              ${s.ticker}
+            </span>
+            <p class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[140px]">${s.name}</p>
+          </div>
+          <div class="flex items-center gap-1 text-xs font-semibold ${isPricePos ? 'text-green-500' : 'text-red-500'}">
+            <svg class="w-4 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="${isPricePos ? 'M12 6v13m0-13 4 4m-4-4-4 4' : 'M12 19V6m0 13-4-4m4 4 4-4'}"/>
+            </svg>
+            ${isPricePos ? '+' : ''}${s.changePct.toFixed(2)}%
+          </div>
+        </div>
+
+        <!-- Current stock price -->
+        <p class="text-xl font-bold text-gray-900 dark:text-white mt-2">€ ${fmtPrice(s.currentPrice)}</p>
+
+        <!-- Sparkline chart -->
+        <div id="stock-chart-${s.ticker}"></div>
+
+        <!-- 2×2 metrics grid -->
+        <div class="grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-gray-200 dark:border-gray-700 pt-3 mt-1">
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Invested</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">${fmtEur(s.investedAmount)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Shares</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">${fmtQty(qty)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">Current</p>
+            <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">${fmtEur(s.currentValue)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">P&amp;L</p>
+            <p class="text-sm font-semibold ${isPnlPos ? 'text-green-500' : 'text-red-500'}">
+              ${isPnlPos ? '+' : ''}${fmtEur(s.pnl)}
+              <span class="text-xs font-medium">(${isPnlPos ? '+' : ''}${s.roi.toFixed(1)}%)</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">${s.exchange} · ${s.sector}</p>
+      </div>`;
+  }).join('');
+
+  // Render charts after DOM update
+  setTimeout(() => stocks.forEach(s => renderStockChart(s)), 0);
+}
+
+function renderStockChart(stock) {
+  const dark  = html.classList.contains('dark');
+  const isPos = stock.changePct >= 0;
+  const color = isPos ? '#10b981' : '#ef4444';
+  const el    = document.getElementById(`stock-chart-${stock.ticker}`);
+  if (!el) return;
+
+  const chart = new ApexCharts(el, {
+    series: [{ name: stock.ticker, data: stock.prices.map(p => parseFloat(p.toFixed(2))) }],
+    chart: {
+      type: 'area', height: 80, sparkline: { enabled: true },
+      background: 'transparent', toolbar: { show: false }, zoom: { enabled: false },
+      animations: { enabled: true, speed: 400 }
+    },
+    stroke:  { curve: 'smooth', width: 2, colors: [color] },
+    fill: {
+      type: 'gradient',
+      gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.0, stops: [0, 100] }
+    },
+    colors: [color],
+    xaxis:  { categories: stock.months },
+    tooltip: {
+      theme: dark ? 'dark' : 'light', x: { show: true },
+      y: { formatter: v => '€ ' + v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) }
+    },
+    theme: { mode: dark ? 'dark' : 'light' }
+  });
+  chart.render();
+  stockChartInstances[stock.ticker] = chart;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BOOT
+════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
+  showSkeletons();
+
+  try {
+    // Load portfolio (summary + holdings), progress chart, and stock price history in parallel
+    await Promise.all([
+      loadPortfolio(),
+      loadProgress(currentProgressPeriod),
+      loadStockPriceHistory(currentStockWindow)
+    ]);
+  } catch (e) {
+    showError(`Failed to load portfolio: ${e.message}`);
+    console.error(e);
+  } finally {
+    hideSkeletons();
+  }
+});
+</script>
+</body>
+</html>

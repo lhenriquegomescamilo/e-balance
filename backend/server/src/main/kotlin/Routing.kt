@@ -1,9 +1,17 @@
 package com.ebalance
 
+import com.ebalance.investments.application.GetStockPriceHistoryUseCase
+import com.ebalance.investments.application.GetWalletHoldingsUseCase
+import com.ebalance.investments.application.GetWalletProgressUseCase
+import com.ebalance.investments.application.GetWalletSummaryUseCase
+import com.ebalance.investments.application.UpsertInvestmentAssetUseCase
+import com.ebalance.investments.application.ValidateStockUseCase
+import com.ebalance.investments.infrastructure.web.investmentRoutes
 import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.application.ImportTransactionsUseCase
 import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.infrastructure.web.transactionRoutes
 import io.ktor.server.application.*
@@ -13,12 +21,21 @@ import io.ktor.server.routing.*
 import org.koin.ktor.ext.inject
 
 fun Application.configureRouting() {
-    // Resolve use-case singletons from Koin (configured in Frameworks.kt)
+    // Transactions use cases
     val summaryUseCase: GetTransactionSummaryUseCase by inject()
     val transactionsUseCase: GetTransactionsUseCase by inject()
     val categoriesUseCase: GetCategoriesUseCase by inject()
     val monthlySummaryUseCase: GetMonthlySummaryUseCase by inject()
     val updateCategoryUseCase: UpdateTransactionCategoryUseCase by inject()
+    val importUseCase: ImportTransactionsUseCase by inject()
+
+    // Investments use cases
+    val walletSummaryUseCase: GetWalletSummaryUseCase by inject()
+    val walletHoldingsUseCase: GetWalletHoldingsUseCase by inject()
+    val walletProgressUseCase: GetWalletProgressUseCase by inject()
+    val upsertAssetUseCase: UpsertInvestmentAssetUseCase by inject()
+    val stockPriceHistoryUseCase: GetStockPriceHistoryUseCase by inject()
+    val validateStockUseCase: ValidateStockUseCase by inject()
 
     routing {
         // Redirect root to the dashboard
@@ -29,7 +46,8 @@ fun Application.configureRouting() {
 
         // REST API — all endpoints live under /api/v1
         route("/api/v1") {
-            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase, updateCategoryUseCase)
+            transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase, updateCategoryUseCase, importUseCase)
+            investmentRoutes(walletSummaryUseCase, walletHoldingsUseCase, walletProgressUseCase, upsertAssetUseCase, stockPriceHistoryUseCase, validateStockUseCase)
         }
     }
 }

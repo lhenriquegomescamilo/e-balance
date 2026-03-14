@@ -4,60 +4,82 @@ import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
 import com.ebalance.transactions.domain.*
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.transaction
 import java.math.BigDecimal
-import java.sql.DriverManager
-import java.sql.PreparedStatement
 import java.time.LocalDate
+import kotlin.math.ceil
 
-/**
- * SQLite adapter implementing [TransactionRepository].
- *
- * All filtering is pushed down to the database via parameterised SQL — no in-memory filtering.
- * A new connection is opened per call (acceptable for a local SQLite file with low concurrency).
- *
- * Schema reference:
- *   transactions(id, operated_at TEXT, description TEXT, value REAL, balance REAL, category_id INT)
- *   category(id INT, name TEXT, enum_name TEXT)
- */
-class TransactionRepositoryImpl(private val dbPath: String) : TransactionRepository {
+class TransactionRepositoryImpl(private val database: Database) : TransactionRepository {
 
-    private fun connection() = DriverManager.getConnection("jdbc:sqlite:$dbPath")
+    private fun absOf(expr: Column<Double>): Expression<Double> =
+        CustomFunction("ABS", DoubleColumnType(), expr)
+
+    private fun applyFilters(query: Query, filter: TransactionFilter): Query {
+        var q = query
+        if (filter.categoryIds.isNotEmpty()) {
+            q = q.andWhere { TransactionsTable.categoryId inList filter.categoryIds }
+        }
+        when (filter.type) {
+            TransactionType.INCOME  -> q = q.andWhere { TransactionsTable.value greater 0.0 }
+            TransactionType.EXPENSE -> q = q.andWhere { TransactionsTable.value less 0.0 }
+            TransactionType.ALL     -> {}
+        }
+        return q
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // getSummary — groups by category, aggregates income/expense totals
     // ─────────────────────────────────────────────────────────────────────────
     override fun getSummary(filter: TransactionFilter): Either<TransactionError.DatabaseError, TransactionSummaryResult> =
         runCatching {
-            val (sql, binder) = buildSummaryQuery(filter)
+            transaction(database) {
+                val catName = Coalesce(CategoryTable.name, stringParam("Desconhecida"))
+                val totalIncome = Sum(
+                    Case()
+                        .When(Op.build { TransactionsTable.value greater 0.0 }, TransactionsTable.value)
+                        .Else(doubleParam(0.0)),
+                    DoubleColumnType()
+                )
+                val totalExpenses = Sum(
+                    Case()
+                        .When(Op.build { TransactionsTable.value less 0.0 }, absOf(TransactionsTable.value))
+                        .Else(doubleParam(0.0)),
+                    DoubleColumnType()
+                )
+                val txCount = TransactionsTable.id.count()
 
-            connection().use { conn ->
-                conn.prepareStatement(sql).use { stmt ->
-                    binder(stmt)
-
-                    val categories = mutableListOf<CategorySummary>()
-                    stmt.executeQuery().use { rs ->
-                        while (rs.next()) {
-                            categories += CategorySummary(
-                                categoryId       = rs.getLong("category_id"),
-                                categoryName     = rs.getString("category_name"),
-                                totalIncome      = rs.getDouble("total_income").toBigDecimal(),
-                                totalExpenses    = rs.getDouble("total_expenses").toBigDecimal(),
-                                transactionCount = rs.getInt("transaction_count")
-                            )
-                        }
+                val baseQuery = TransactionsTable
+                    .join(CategoryTable, JoinType.LEFT, TransactionsTable.categoryId, CategoryTable.id)
+                    .select(TransactionsTable.categoryId, catName, totalIncome, totalExpenses, txCount)
+                    .where {
+                        (TransactionsTable.operatedAt greaterEq filter.startDate.toString()) and
+                        (TransactionsTable.operatedAt lessEq filter.endDate.toString())
                     }
 
-                    val totalIncome   = categories.fold(BigDecimal.ZERO) { s, c -> s + c.totalIncome }
-                    val totalExpenses = categories.fold(BigDecimal.ZERO) { s, c -> s + c.totalExpenses }
+                val categories = applyFilters(baseQuery, filter)
+                    .groupBy(TransactionsTable.categoryId, CategoryTable.name)
+                    .orderBy(totalExpenses to SortOrder.DESC)
+                    .map { row ->
+                        CategorySummary(
+                            categoryId       = row[TransactionsTable.categoryId],
+                            categoryName     = row[catName],
+                            totalIncome      = (row[totalIncome] ?: 0.0).toBigDecimal(),
+                            totalExpenses    = (row[totalExpenses] ?: 0.0).toBigDecimal(),
+                            transactionCount = row[txCount].toInt()
+                        )
+                    }
 
-                    TransactionSummaryResult(
-                        totalIncome      = totalIncome,
-                        totalExpenses    = totalExpenses,
-                        netBalance       = totalIncome - totalExpenses,
-                        transactionCount = categories.sumOf { it.transactionCount },
-                        categories       = categories
-                    )
-                }
+                val totalIncomeBD   = categories.fold(BigDecimal.ZERO) { s, c -> s + c.totalIncome }
+                val totalExpensesBD = categories.fold(BigDecimal.ZERO) { s, c -> s + c.totalExpenses }
+
+                TransactionSummaryResult(
+                    totalIncome      = totalIncomeBD,
+                    totalExpenses    = totalExpensesBD,
+                    netBalance       = totalIncomeBD - totalExpensesBD,
+                    transactionCount = categories.sumOf { it.transactionCount },
+                    categories       = categories
+                )
             }
         }.fold(
             onSuccess = { it.right() },
@@ -65,9 +87,7 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
         )
 
     // ─────────────────────────────────────────────────────────────────────────
-    // getTransactions — returns a page of individual rows, newest first.
-    // Two queries are issued inside a single connection: COUNT(*) then the
-    // paginated SELECT, avoiding an extra round-trip to the DB file.
+    // getTransactions — returns a page of individual rows, newest first
     // ─────────────────────────────────────────────────────────────────────────
     override fun getTransactions(filter: TransactionFilter): Either<TransactionError.DatabaseError, TransactionPage> =
         runCatching {
@@ -75,43 +95,40 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
             val pageSize = filter.pageSize.coerceIn(1, 200)
             val offset   = (page - 1) * pageSize
 
-            val (countSql, binder) = buildTransactionsCountQuery(filter)
-            val (rowsSql,  _)      = buildTransactionsQuery(filter)
+            transaction(database) {
+                val catName = Coalesce(CategoryTable.name, stringParam("Desconhecida"))
 
-            connection().use { conn ->
-                // 1. Total count (same WHERE clause, no ORDER/LIMIT)
-                val total = conn.prepareStatement(countSql).use { stmt ->
-                    binder(stmt)
-                    stmt.executeQuery().use { rs -> if (rs.next()) rs.getInt(1) else 0 }
-                }
+                fun buildQuery() = applyFilters(
+                    TransactionsTable
+                        .join(CategoryTable, JoinType.LEFT, TransactionsTable.categoryId, CategoryTable.id)
+                        .select(
+                            TransactionsTable.id, TransactionsTable.operatedAt, TransactionsTable.description,
+                            TransactionsTable.value, TransactionsTable.balance, TransactionsTable.categoryId, catName
+                        )
+                        .where {
+                            (TransactionsTable.operatedAt greaterEq filter.startDate.toString()) and
+                            (TransactionsTable.operatedAt lessEq filter.endDate.toString())
+                        },
+                    filter
+                )
 
-                // 2. Paginated rows
-                val pagedSql = "$rowsSql LIMIT ? OFFSET ?"
-                val rows = conn.prepareStatement(pagedSql).use { stmt ->
-                    binder(stmt)
-                    // binder fills 2 + |categoryIds| params; LIMIT/OFFSET come after
-                    var idx = 2 + filter.categoryIds.size + 1
-                    stmt.setInt(idx++, pageSize)
-                    stmt.setInt(idx,   offset)
-
-                    val list = mutableListOf<TransactionRow>()
-                    stmt.executeQuery().use { rs ->
-                        while (rs.next()) {
-                            list += TransactionRow(
-                                id           = rs.getLong("id"),
-                                operatedAt   = LocalDate.parse(rs.getString("operated_at")),
-                                description  = rs.getString("description"),
-                                value        = rs.getDouble("value").toBigDecimal(),
-                                balance      = rs.getDouble("balance").toBigDecimal(),
-                                categoryId   = rs.getLong("category_id"),
-                                categoryName = rs.getString("category_name")
-                            )
-                        }
+                val total = buildQuery().count().toInt()
+                val rows  = buildQuery()
+                    .orderBy(TransactionsTable.operatedAt to SortOrder.DESC, TransactionsTable.id to SortOrder.DESC)
+                    .limit(pageSize, offset.toLong())
+                    .map { row ->
+                        TransactionRow(
+                            id           = row[TransactionsTable.id],
+                            operatedAt   = LocalDate.parse(row[TransactionsTable.operatedAt]),
+                            description  = row[TransactionsTable.description],
+                            value        = row[TransactionsTable.value].toBigDecimal(),
+                            balance      = row[TransactionsTable.balance].toBigDecimal(),
+                            categoryId   = row[TransactionsTable.categoryId],
+                            categoryName = row[catName]
+                        )
                     }
-                    list
-                }
 
-                val totalPages = if (pageSize > 0) Math.ceil(total.toDouble() / pageSize).toInt().coerceAtLeast(1) else 1
+                val totalPages = ceil(total.toDouble() / pageSize).toInt().coerceAtLeast(1)
                 TransactionPage(rows = rows, total = total, page = page, pageSize = pageSize, totalPages = totalPages)
             }
         }.fold(
@@ -124,20 +141,16 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
     // ─────────────────────────────────────────────────────────────────────────
     override fun getCategories(): Either<TransactionError.DatabaseError, List<CategoryEntry>> =
         runCatching {
-            connection().use { conn ->
-                conn.prepareStatement("SELECT id, name, enum_name FROM category ORDER BY name").use { stmt ->
-                    val list = mutableListOf<CategoryEntry>()
-                    stmt.executeQuery().use { rs ->
-                        while (rs.next()) {
-                            list += CategoryEntry(
-                                id       = rs.getLong("id"),
-                                name     = rs.getString("name"),
-                                enumName = rs.getString("enum_name")
-                            )
-                        }
+            transaction(database) {
+                CategoryTable.selectAll()
+                    .orderBy(CategoryTable.name to SortOrder.ASC)
+                    .map { row ->
+                        CategoryEntry(
+                            id       = row[CategoryTable.id],
+                            name     = row[CategoryTable.name],
+                            enumName = row[CategoryTable.enumName]
+                        )
                     }
-                    list
-                }
             }
         }.fold(
             onSuccess = { it.right() },
@@ -145,193 +158,83 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
         )
 
     // ─────────────────────────────────────────────────────────────────────────
-    // SQL builders — return (sql, paramBinder) pairs
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private fun buildSummaryQuery(
-        filter: TransactionFilter
-    ): Pair<String, (PreparedStatement) -> Unit> {
-
-        val categoryClause = categoryInClause(filter.categoryIds)
-        val typeClause     = typeWhereClause(filter.type)
-
-        val sql = """
-            SELECT
-                t.category_id,
-                COALESCE(c.name, 'Desconhecida')                             AS category_name,
-                SUM(CASE WHEN t.value > 0 THEN t.value       ELSE 0 END)    AS total_income,
-                SUM(CASE WHEN t.value < 0 THEN ABS(t.value)  ELSE 0 END)    AS total_expenses,
-                COUNT(*)                                                      AS transaction_count
-            FROM transactions t
-            LEFT JOIN category c ON t.category_id = c.id
-            WHERE t.operated_at >= ?
-              AND t.operated_at <= ?
-              $categoryClause
-              $typeClause
-            GROUP BY t.category_id, category_name
-            ORDER BY total_expenses DESC
-        """.trimIndent()
-
-        val binder: (PreparedStatement) -> Unit = { stmt ->
-            var idx = 1
-            stmt.setString(idx++, filter.startDate.toString())
-            stmt.setString(idx++, filter.endDate.toString())
-            filter.categoryIds.forEach { stmt.setLong(idx++, it) }
-        }
-
-        return sql to binder
-    }
-
-    private fun buildTransactionsQuery(
-        filter: TransactionFilter
-    ): Pair<String, (PreparedStatement) -> Unit> {
-
-        val categoryClause = categoryInClause(filter.categoryIds)
-        val typeClause     = typeWhereClause(filter.type)
-
-        val sql = """
-            SELECT
-                t.id,
-                t.operated_at,
-                t.description,
-                t.value,
-                t.balance,
-                t.category_id,
-                COALESCE(c.name, 'Desconhecida') AS category_name
-            FROM transactions t
-            LEFT JOIN category c ON t.category_id = c.id
-            WHERE t.operated_at >= ?
-              AND t.operated_at <= ?
-              $categoryClause
-              $typeClause
-            ORDER BY t.operated_at DESC, t.id DESC
-        """.trimIndent()
-
-        val binder: (PreparedStatement) -> Unit = { stmt ->
-            var idx = 1
-            stmt.setString(idx++, filter.startDate.toString())
-            stmt.setString(idx++, filter.endDate.toString())
-            filter.categoryIds.forEach { stmt.setLong(idx++, it) }
-        }
-
-        return sql to binder
-    }
-
-    // Same WHERE as buildTransactionsQuery but selects COUNT(*) only (no ORDER BY)
-    private fun buildTransactionsCountQuery(
-        filter: TransactionFilter
-    ): Pair<String, (PreparedStatement) -> Unit> {
-
-        val categoryClause = categoryInClause(filter.categoryIds)
-        val typeClause     = typeWhereClause(filter.type)
-
-        val sql = """
-            SELECT COUNT(*)
-            FROM transactions t
-            WHERE t.operated_at >= ?
-              AND t.operated_at <= ?
-              $categoryClause
-              $typeClause
-        """.trimIndent()
-
-        val binder: (PreparedStatement) -> Unit = { stmt ->
-            var idx = 1
-            stmt.setString(idx++, filter.startDate.toString())
-            stmt.setString(idx++, filter.endDate.toString())
-            filter.categoryIds.forEach { stmt.setLong(idx++, it) }
-        }
-
-        return sql to binder
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // getMonthlySummary — groups by YYYY-MM × category, zero-fills missing months
     // ─────────────────────────────────────────────────────────────────────────
     override fun getMonthlySummary(filter: TransactionFilter): Either<TransactionError.DatabaseError, MonthlySummaryResult> =
         runCatching {
-            val categoryClause = categoryInClause(filter.categoryIds)
-            val typeClause     = typeWhereClause(filter.type)
+            transaction(database) {
+                val catName      = Coalesce(CategoryTable.name, stringParam("Desconhecida"))
+                val monthYearExpr = ToCharDate(TransactionsTable.operatedAt, "YYYY-MM")
+                val totalIncome  = Sum(
+                    Case()
+                        .When(Op.build { TransactionsTable.value greater 0.0 }, TransactionsTable.value)
+                        .Else(doubleParam(0.0)),
+                    DoubleColumnType()
+                )
+                val totalExpenses = Sum(
+                    Case()
+                        .When(Op.build { TransactionsTable.value less 0.0 }, absOf(TransactionsTable.value))
+                        .Else(doubleParam(0.0)),
+                    DoubleColumnType()
+                )
+                val txCount = TransactionsTable.id.count()
 
-            val sql = """
-                SELECT
-                    strftime('%Y-%m', t.operated_at)                             AS month_year,
-                    t.category_id,
-                    COALESCE(c.name, 'Desconhecida')                             AS category_name,
-                    SUM(CASE WHEN t.value > 0 THEN t.value       ELSE 0 END)    AS total_income,
-                    SUM(CASE WHEN t.value < 0 THEN ABS(t.value)  ELSE 0 END)    AS total_expenses,
-                    COUNT(*)                                                      AS transaction_count
-                FROM transactions t
-                LEFT JOIN category c ON t.category_id = c.id
-                WHERE t.operated_at >= ?
-                  AND t.operated_at <= ?
-                  $categoryClause
-                  $typeClause
-                GROUP BY month_year, t.category_id, category_name
-                ORDER BY month_year ASC, total_expenses DESC
-            """.trimIndent()
-
-            // Raw rows from SQL: (monthYear, categoryId, categoryName, income, expenses, count)
-            data class RawRow(
-                val monthYear: String,
-                val categoryId: Long,
-                val categoryName: String,
-                val totalIncome: BigDecimal,
-                val totalExpenses: BigDecimal,
-                val transactionCount: Int
-            )
-
-            val rawRows = mutableListOf<RawRow>()
-
-            connection().use { conn ->
-                conn.prepareStatement(sql).use { stmt ->
-                    var idx = 1
-                    stmt.setString(idx++, filter.startDate.toString())
-                    stmt.setString(idx++, filter.endDate.toString())
-                    filter.categoryIds.forEach { stmt.setLong(idx++, it) }
-
-                    stmt.executeQuery().use { rs ->
-                        while (rs.next()) {
-                            rawRows += RawRow(
-                                monthYear        = rs.getString("month_year"),
-                                categoryId       = rs.getLong("category_id"),
-                                categoryName     = rs.getString("category_name"),
-                                totalIncome      = rs.getDouble("total_income").toBigDecimal(),
-                                totalExpenses    = rs.getDouble("total_expenses").toBigDecimal(),
-                                transactionCount = rs.getInt("transaction_count")
-                            )
-                        }
+                val baseQuery = TransactionsTable
+                    .join(CategoryTable, JoinType.LEFT, TransactionsTable.categoryId, CategoryTable.id)
+                    .select(monthYearExpr, TransactionsTable.categoryId, catName, totalIncome, totalExpenses, txCount)
+                    .where {
+                        (TransactionsTable.operatedAt greaterEq filter.startDate.toString()) and
+                        (TransactionsTable.operatedAt lessEq filter.endDate.toString())
                     }
-                }
+
+                data class RawRow(
+                    val monthYear: String,
+                    val categoryId: Long,
+                    val categoryName: String,
+                    val totalIncome: BigDecimal,
+                    val totalExpenses: BigDecimal,
+                    val transactionCount: Int
+                )
+
+                val rawRows = applyFilters(baseQuery, filter)
+                    .groupBy(monthYearExpr, TransactionsTable.categoryId, CategoryTable.name)
+                    .orderBy(monthYearExpr to SortOrder.ASC, totalExpenses to SortOrder.DESC)
+                    .map { row ->
+                        RawRow(
+                            monthYear        = row[monthYearExpr],
+                            categoryId       = row[TransactionsTable.categoryId],
+                            categoryName     = row[catName],
+                            totalIncome      = (row[totalIncome] ?: 0.0).toBigDecimal(),
+                            totalExpenses    = (row[totalExpenses] ?: 0.0).toBigDecimal(),
+                            transactionCount = row[txCount].toInt()
+                        )
+                    }
+
+                val allMonths = rawRows.map { it.monthYear }.distinct().sorted()
+
+                val series = rawRows
+                    .groupBy { it.categoryId to it.categoryName }
+                    .map { (key, rows) ->
+                        val (catId, catName2) = key
+                        val byMonth = rows.associateBy { it.monthYear }
+                        MonthlyCategorySeries(
+                            categoryId   = catId,
+                            categoryName = catName2,
+                            monthlyData  = allMonths.map { month ->
+                                val row = byMonth[month]
+                                MonthlyCategoryData(
+                                    monthYear        = month,
+                                    totalIncome      = row?.totalIncome      ?: BigDecimal.ZERO,
+                                    totalExpenses    = row?.totalExpenses    ?: BigDecimal.ZERO,
+                                    transactionCount = row?.transactionCount ?: 0
+                                )
+                            }
+                        )
+                    }
+                    .sortedByDescending { s -> s.monthlyData.sumOf { it.totalExpenses } }
+
+                MonthlySummaryResult(months = allMonths, series = series)
             }
-
-            // Collect all months present in the result, sorted chronologically
-            val allMonths = rawRows.map { it.monthYear }.distinct().sorted()
-
-            // Group rows by category; zero-fill months with no data for that category
-            val series = rawRows
-                .groupBy { it.categoryId to it.categoryName }
-                .map { (key, rows) ->
-                    val (catId, catName) = key
-                    val byMonth = rows.associateBy { it.monthYear }
-
-                    MonthlyCategorySeries(
-                        categoryId   = catId,
-                        categoryName = catName,
-                        monthlyData  = allMonths.map { month ->
-                            val row = byMonth[month]
-                            MonthlyCategoryData(
-                                monthYear        = month,
-                                totalIncome      = row?.totalIncome      ?: BigDecimal.ZERO,
-                                totalExpenses    = row?.totalExpenses    ?: BigDecimal.ZERO,
-                                transactionCount = row?.transactionCount ?: 0
-                            )
-                        }
-                    )
-                }
-                // Sort by sum of expenses across all months, descending
-                .sortedByDescending { s -> s.monthlyData.sumOf { it.totalExpenses } }
-
-            MonthlySummaryResult(months = allMonths, series = series)
         }.fold(
             onSuccess = { it.right() },
             onFailure = { e -> TransactionError.DatabaseError("Failed to load monthly summary", e).left() }
@@ -341,13 +244,11 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
     // updateTransactionCategory — validates both IDs then runs UPDATE
     // ─────────────────────────────────────────────────────────────────────────
     override fun updateTransactionCategory(transactionId: Long, categoryId: Long): Either<TransactionError, Unit> {
-        // Validate transaction exists
         val txCheck = runCatching {
-            connection().use { conn ->
-                conn.prepareStatement("SELECT 1 FROM transactions WHERE id = ?").use { stmt ->
-                    stmt.setLong(1, transactionId)
-                    stmt.executeQuery().use { rs -> rs.next() }
-                }
+            transaction(database) {
+                TransactionsTable.selectAll()
+                    .where { TransactionsTable.id eq transactionId }
+                    .count() > 0
             }
         }.fold(
             onSuccess = { found ->
@@ -358,13 +259,11 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
         )
         if (txCheck != null) return txCheck
 
-        // Validate category exists
         val catCheck = runCatching {
-            connection().use { conn ->
-                conn.prepareStatement("SELECT 1 FROM category WHERE id = ?").use { stmt ->
-                    stmt.setLong(1, categoryId)
-                    stmt.executeQuery().use { rs -> rs.next() }
-                }
+            transaction(database) {
+                CategoryTable.selectAll()
+                    .where { CategoryTable.id eq categoryId }
+                    .count() > 0
             }
         }.fold(
             onSuccess = { found ->
@@ -375,30 +274,15 @@ class TransactionRepositoryImpl(private val dbPath: String) : TransactionReposit
         )
         if (catCheck != null) return catCheck
 
-        // Apply the update
         return runCatching {
-            connection().use { conn ->
-                conn.prepareStatement("UPDATE transactions SET category_id = ? WHERE id = ?").use { stmt ->
-                    stmt.setLong(1, categoryId)
-                    stmt.setLong(2, transactionId)
-                    stmt.executeUpdate()
+            transaction(database) {
+                TransactionsTable.update({ TransactionsTable.id eq transactionId }) {
+                    it[TransactionsTable.categoryId] = categoryId
                 }
             }
         }.fold(
             onSuccess = { Unit.right() },
             onFailure = { e -> TransactionError.DatabaseError("Failed to update transaction category", e).left() }
         )
-    }
-
-    // Builds "AND t.category_id IN (?,?,?)" or empty string
-    private fun categoryInClause(ids: List<Long>): String =
-        if (ids.isEmpty()) ""
-        else "AND t.category_id IN (${ids.joinToString(",") { "?" }})"
-
-    // Appends sign constraint for INCOME/EXPENSE filtering
-    private fun typeWhereClause(type: TransactionType): String = when (type) {
-        TransactionType.INCOME  -> "AND t.value > 0"
-        TransactionType.EXPENSE -> "AND t.value < 0"
-        TransactionType.ALL     -> ""
     }
 }

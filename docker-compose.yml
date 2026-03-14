@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ebalance
+      POSTGRES_USER: ebalance
+      POSTGRES_PASSWORD: ebalance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ebalance -d ebalance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  flyway-migrator:
+    image: flyway/flyway:10
+    command: >
+      -url=jdbc:postgresql://postgres:5432/ebalance
+      -user=ebalance
+      -password=ebalance
+      -locations=filesystem:/flyway/sql
+      migrate
+    volumes:
+      - ./backend/server/src/main/resources/db/migration:/flyway/sql:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/ebalance
+      DATABASE_USERNAME: ebalance
+      DATABASE_PASSWORD: ebalance
+      REDIS_URL: redis://redis:6379
+      CLASSIFIER_MODEL_PATH: /app/nn-model.bin
+      FLYWAY_ENABLED: "false"
+    volumes:
+      - ./nn-model.bin:/app/nn-model.bin:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      flyway-migrator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

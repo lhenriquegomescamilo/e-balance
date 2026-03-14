@@ -8,39 +8,35 @@ import com.ebalance.transactions.application.GetCategoriesUseCase
 import com.ebalance.transactions.application.GetMonthlySummaryUseCase
 import com.ebalance.transactions.application.GetTransactionSummaryUseCase
 import com.ebalance.transactions.application.GetTransactionsUseCase
+import com.ebalance.transactions.application.ImportTransactionsUseCase
 import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.domain.TransactionError
 import com.ebalance.transactions.domain.TransactionFilter
 import com.ebalance.transactions.domain.TransactionType
 import com.ebalance.transactions.infrastructure.web.dto.*
 import io.ktor.http.*
+import io.ktor.http.content.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.utils.io.toByteArray
+import java.io.ByteArrayInputStream
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
-/**
- * Registers all transaction-related REST endpoints under the calling [Route].
- *
- * Endpoints:
- *   GET   /transactions/summary               — aggregated stats + category breakdown (Donut chart)
- *   GET   /transactions/monthly-by-category   — monthly trend per category (area/bar chart)
- *   GET   /transactions                       — paginated list of individual transactions (table)
- *   PATCH /transactions/{id}/category         — update the category of a single transaction
- *   GET   /categories                         — all categories (filter dropdown)
- */
 fun Route.transactionRoutes(
     summaryUseCase: GetTransactionSummaryUseCase,
     transactionsUseCase: GetTransactionsUseCase,
     categoriesUseCase: GetCategoriesUseCase,
     monthlySummaryUseCase: GetMonthlySummaryUseCase,
-    updateCategoryUseCase: UpdateTransactionCategoryUseCase
+    updateCategoryUseCase: UpdateTransactionCategoryUseCase,
+    importUseCase: ImportTransactionsUseCase
 ) {
 
     // ── GET /api/v1/transactions/summary ─────────────────────────────────────
     get("/transactions/summary") {
+        call.application.environment.log.info("GET /transactions/summary params=${call.request.queryString()}")
         either {
             val filter = parseFilter(call.request).bind()
             filter to summaryUseCase.execute(filter).bind()
@@ -81,6 +77,7 @@ fun Route.transactionRoutes(
 
     // ── GET /api/v1/transactions ─────────────────────────────────────────────
     get("/transactions") {
+        call.application.environment.log.info("GET /transactions params=${call.request.queryString()}")
         either {
             val filter = parseFilter(call.request).bind()
             transactionsUseCase.execute(filter).bind()
@@ -119,6 +116,7 @@ fun Route.transactionRoutes(
     // can toggle the view without an extra round-trip.
     // Missing months for a given category are zero-filled.
     get("/transactions/monthly-by-category") {
+        call.application.environment.log.info("GET /transactions/monthly-by-category params=${call.request.queryString()}")
         either {
             val filter = parseFilter(call.request).bind()
             filter to monthlySummaryUseCase.execute(filter).bind()
@@ -156,6 +154,7 @@ fun Route.transactionRoutes(
 
     // ── PATCH /api/v1/transactions/{id}/category ─────────────────────────────
     patch("/transactions/{id}/category") {
+        call.application.environment.log.info("PATCH /transactions/${call.parameters["id"]}/category")
         either {
             val transactionId = call.parameters["id"]?.toLongOrNull()
                 ?: raise(TransactionError.InvalidParameter("Transaction ID must be a number"))
@@ -181,6 +180,7 @@ fun Route.transactionRoutes(
     // Optional query param: ids=1,2,3  — returns only the matching categories.
     // Omitting ids (or ids=) returns all categories.
     get("/categories") {
+        call.application.environment.log.info("GET /categories")
         either {
             val ids = call.request.queryParameters["ids"]
                 ?.split(",")?.filter { it.isNotBlank() }
@@ -200,20 +200,75 @@ fun Route.transactionRoutes(
             }
         )
     }
+
+    // ── POST /api/v1/transactions/import ─────────────────────────────────────
+    // Accepts a multipart XLS file upload, classifies transactions with the
+    // neural-network model, saves to DB, and streams SSE progress events.
+    post("/transactions/import") {
+        call.application.environment.log.info("POST /transactions/import")
+
+        val multipart = call.receiveMultipart()
+        var fileBytes: ByteArray? = null
+        multipart.forEachPart { part ->
+            if (part is PartData.FileItem) {
+                fileBytes = part.provider().toByteArray()
+            }
+            part.dispose()
+        }
+
+        val bytes = fileBytes ?: run {
+            call.respond(HttpStatusCode.BadRequest, ErrorResponse("INVALID_PARAMETER", "No file provided"))
+            return@post
+        }
+        call.respondTextWriter(contentType = ContentType.Text.EventStream, status = HttpStatusCode.OK) {
+            fun emit(json: String) {
+                write("data: $json\n\n")
+                flush()
+            }
+            try {
+                importUseCase.execute(ByteArrayInputStream(bytes)) { stage ->
+                    when (stage) {
+                        is ImportTransactionsUseCase.Stage.Reading ->
+                            emit("""{"stage":"reading","message":"Reading Excel file..."}""")
+                        is ImportTransactionsUseCase.Stage.Classifying ->
+                            emit("""{"stage":"classifying","message":"Classifying ${stage.total} transactions...","total":${stage.total}}""")
+                        is ImportTransactionsUseCase.Stage.Saving ->
+                            emit("""{"stage":"saving","message":"Saving to database..."}""")
+                        is ImportTransactionsUseCase.Stage.Complete -> {
+                            val r = stage.result
+                            emit("""{"stage":"complete","totalRead":${r.totalRead},"inserted":${r.inserted},"duplicates":${r.duplicates},"classified":${r.classified}}""")
+                        }
+                        is ImportTransactionsUseCase.Stage.Failed ->
+                            emit("""{"stage":"error","message":"${stage.message.replace("\"", "'")}"}""")
+                    }
+                }
+            } catch (e: Exception) {
+                runCatching {
+                    emit("""{"stage":"error","message":"${e.message?.replace("\"", "'") ?: "Import failed"}"}""")
+                }
+            }
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper — maps a TransactionError to the appropriate HTTP response (DRY)
 // ─────────────────────────────────────────────────────────────────────────────
 private suspend fun ApplicationCall.respondError(error: TransactionError) = when (error) {
-    is TransactionError.InvalidDate      -> respond(HttpStatusCode.BadRequest,
-        ErrorResponse("INVALID_DATE", error.message))
-    is TransactionError.InvalidParameter -> respond(HttpStatusCode.BadRequest,
-        ErrorResponse("INVALID_PARAMETER", error.message))
-    is TransactionError.NotFound         -> respond(HttpStatusCode.NotFound,
-        ErrorResponse("NOT_FOUND", error.message))
+    is TransactionError.InvalidDate      -> {
+        application.environment.log.warn("Transaction invalid date: ${error.message}")
+        respond(HttpStatusCode.BadRequest, ErrorResponse("INVALID_DATE", error.message))
+    }
+    is TransactionError.InvalidParameter -> {
+        application.environment.log.warn("Transaction invalid parameter: ${error.message}")
+        respond(HttpStatusCode.BadRequest, ErrorResponse("INVALID_PARAMETER", error.message))
+    }
+    is TransactionError.NotFound         -> {
+        application.environment.log.warn("Transaction not found: ${error.message}")
+        respond(HttpStatusCode.NotFound, ErrorResponse("NOT_FOUND", error.message))
+    }
     is TransactionError.DatabaseError    -> {
-        application.environment.log.error("Database error", error.cause)
+        application.environment.log.error("Transaction database error: ${error.message}", error.cause)
         respond(HttpStatusCode.InternalServerError,
             ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"))
     }

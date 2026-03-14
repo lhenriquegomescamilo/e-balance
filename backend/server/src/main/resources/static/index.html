@@ -113,9 +113,13 @@
   <nav class="px-3 py-4 space-y-1">
     <p class="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Main</p>
 
-    <a href="#" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+    <a href="/static/index.html" class="nav-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                        bg-brand-500 text-white cursor-pointer">
       <i class="fa-solid fa-chart-pie w-5 text-center"></i> Dashboard
+    </a>
+    <a href="/static/investments.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+                       text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
+      <i class="fa-solid fa-chart-line w-5 text-center"></i> Investments
     </a>
     <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                        text-gray-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-800 cursor-pointer">
@@ -163,6 +167,14 @@
   </div>
 
   <div class="flex items-center gap-2 ml-auto">
+    <!-- Import Expenses button -->
+    <button onclick="openImportModal()"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                   bg-brand-500 text-white hover:bg-brand-600 transition-colors">
+      <i class="fa-solid fa-file-arrow-up text-xs"></i>
+      <span class="hidden sm:inline">Import</span>
+    </button>
+
     <button class="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800">
       <i class="fa-solid fa-bell"></i>
       <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -1697,7 +1709,265 @@ document.addEventListener('DOMContentLoaded', async () => {
       Number(badge.dataset.categoryId)
     );
   });
+
+  document.getElementById('import-file-input').addEventListener('change', e => {
+    const f = e.target.files[0];
+    document.getElementById('import-file-name').textContent = f ? f.name : 'No file chosen';
+  });
+
+  document.getElementById('import-start-btn').addEventListener('click', async () => {
+    const fileInput = document.getElementById('import-file-input');
+    if (!fileInput.files[0]) { alert('Please select an XLS file first.'); return; }
+    document.getElementById('import-start-btn').disabled = true;
+    document.getElementById('import-result').classList.add('hidden');
+    setImportStage('reading');
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    try {
+      const response = await fetch('/api/v1/transactions/import', { method: 'POST', body: formData });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ message: 'Upload failed' }));
+        showImportError(err.message || 'Upload failed');
+        return;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try { handleImportEvent(JSON.parse(line.slice(6))); } catch (_) {}
+        }
+      }
+    } catch (err) {
+      showImportError(err.message || 'Network error');
+    }
+  });
+
+  document.getElementById('import-modal-backdrop').addEventListener('click', closeImportModal);
+  document.getElementById('import-close-modal-btn').addEventListener('click', closeImportModal);
+  document.getElementById('import-close-btn').addEventListener('click', () => { closeImportModal(); updateAll(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImportModal(); });
 });
+
+// ── Import expenses — global functions (called from onclick attributes) ───────
+const STAGE_ORDER = ['reading','classifying','saving','complete'];
+
+function openImportModal() {
+  resetImportModal();
+  document.getElementById('import-modal').classList.remove('hidden');
+}
+function closeImportModal() {
+  document.getElementById('import-modal').classList.add('hidden');
+}
+function resetImportModal() {
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-file-name').textContent = 'No file chosen';
+  document.getElementById('import-start-btn').disabled = false;
+  document.getElementById('import-start-btn').classList.remove('hidden');
+  document.getElementById('import-close-btn').classList.add('hidden');
+  setImportStage(null);
+}
+function setImportStage(active) {
+  STAGE_ORDER.forEach(s => {
+    const el = document.getElementById('stage-' + s);
+    if (!el) return;
+    const state = active === s ? 'active' : (isStageComplete(s, active) ? 'done' : 'pending');
+    el.dataset.state = state;
+    renderStageIcon(s, state);
+  });
+}
+function isStageComplete(stage, activeStage) {
+  if (!activeStage) return false;
+  return STAGE_ORDER.indexOf(stage) < STAGE_ORDER.indexOf(activeStage);
+}
+function renderStageIcon(stage, state) {
+  const iconEl = document.getElementById('stage-icon-' + stage);
+  const lineEl = document.getElementById('stage-line-' + stage);
+  if (!iconEl) return;
+  if (state === 'done') {
+    iconEl.innerHTML = '<i class="fa-solid fa-check text-white text-xs"></i>';
+    iconEl.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-brand-500 ring-2 ring-brand-200 dark:ring-brand-900';
+    if (lineEl) lineEl.className = lineEl.className.replace('bg-gray-200 dark:bg-gray-700', 'bg-brand-400');
+  } else if (state === 'active') {
+    iconEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-brand-500 text-xs"></i>';
+    iconEl.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-white dark:bg-gray-800 ring-2 ring-brand-400';
+  } else {
+    iconEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>';
+    iconEl.className = 'w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 ring-2 ring-gray-200 dark:ring-gray-700';
+  }
+}
+function handleImportEvent(ev) {
+  if (ev.stage === 'error') { showImportError(ev.message); return; }
+  setImportStage(ev.stage);
+  if (ev.stage === 'complete') {
+    document.getElementById('import-res-read').textContent        = ev.totalRead   ?? 0;
+    document.getElementById('import-res-inserted').textContent    = ev.inserted    ?? 0;
+    document.getElementById('import-res-duplicates').textContent  = ev.duplicates  ?? 0;
+    document.getElementById('import-res-classified').textContent  = ev.classified  ?? 0;
+    document.getElementById('import-result').classList.remove('hidden');
+    document.getElementById('import-start-btn').classList.add('hidden');
+    document.getElementById('import-close-btn').classList.remove('hidden');
+  }
+}
+function showImportError(msg) {
+  setImportStage(null);
+  document.getElementById('import-result').classList.add('hidden');
+  document.getElementById('import-start-btn').disabled = false;
+  alert('Import error: ' + msg);
+}
 </script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     IMPORT EXPENSES MODAL
+════════════════════════════════════════════════════════════════ -->
+<div id="import-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div id="import-modal-backdrop" class="absolute inset-0 bg-black/50"></div>
+  <div class="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700
+               w-full max-w-md p-6 z-10">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-brand-500 flex items-center justify-center shadow">
+          <i class="fa-solid fa-file-arrow-up text-white text-sm"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-semibold">Import Expenses</h3>
+          <p class="text-xs text-gray-400">Upload an XLS bank export</p>
+        </div>
+      </div>
+      <button id="import-close-modal-btn"
+              class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- File picker -->
+    <div class="mb-6">
+      <label class="flex items-center gap-3 cursor-pointer p-3 rounded-xl border-2 border-dashed
+                    border-gray-300 dark:border-gray-600 hover:border-brand-400 transition-colors group">
+        <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-gray-800 flex items-center justify-center
+                    group-hover:bg-brand-50 dark:group-hover:bg-brand-900/20 transition-colors">
+          <i class="fa-solid fa-table text-gray-400 group-hover:text-brand-500 transition-colors"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Choose XLS file</p>
+          <p id="import-file-name" class="text-xs text-gray-400 truncate">No file chosen</p>
+        </div>
+        <input id="import-file-input" type="file" accept=".xls,.xlsx" class="hidden" />
+      </label>
+    </div>
+
+    <!-- Timeline stages -->
+    <ol class="flex flex-col gap-0 mb-6">
+
+      <!-- Reading -->
+      <li class="flex gap-3 items-start" id="stage-reading" data-state="pending">
+        <div class="flex flex-col items-center">
+          <div id="stage-icon-reading"
+               class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 ring-2 ring-gray-200 dark:ring-gray-700">
+            <span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+          </div>
+          <div id="stage-line-reading" class="w-0.5 h-6 bg-gray-200 dark:bg-gray-700 mt-1"></div>
+        </div>
+        <div class="pb-1 pt-1">
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Reading</p>
+          <p class="text-xs text-gray-400">Parsing the Excel file</p>
+        </div>
+      </li>
+
+      <!-- Classifying -->
+      <li class="flex gap-3 items-start" id="stage-classifying" data-state="pending">
+        <div class="flex flex-col items-center">
+          <div id="stage-icon-classifying"
+               class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 ring-2 ring-gray-200 dark:ring-gray-700">
+            <span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+          </div>
+          <div id="stage-line-classifying" class="w-0.5 h-6 bg-gray-200 dark:bg-gray-700 mt-1"></div>
+        </div>
+        <div class="pb-1 pt-1">
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Classifying</p>
+          <p class="text-xs text-gray-400">Running neural-network model</p>
+        </div>
+      </li>
+
+      <!-- Saving -->
+      <li class="flex gap-3 items-start" id="stage-saving" data-state="pending">
+        <div class="flex flex-col items-center">
+          <div id="stage-icon-saving"
+               class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 ring-2 ring-gray-200 dark:ring-gray-700">
+            <span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+          </div>
+          <div id="stage-line-saving" class="w-0.5 h-6 bg-gray-200 dark:bg-gray-700 mt-1"></div>
+        </div>
+        <div class="pb-1 pt-1">
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Saving</p>
+          <p class="text-xs text-gray-400">Persisting to database</p>
+        </div>
+      </li>
+
+      <!-- Complete -->
+      <li class="flex gap-3 items-start" id="stage-complete" data-state="pending">
+        <div class="flex flex-col items-center">
+          <div id="stage-icon-complete"
+               class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100 dark:bg-gray-700 ring-2 ring-gray-200 dark:ring-gray-700">
+            <span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+          </div>
+        </div>
+        <div class="pb-1 pt-1">
+          <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Complete</p>
+          <p class="text-xs text-gray-400">All done!</p>
+        </div>
+      </li>
+    </ol>
+
+    <!-- Result summary (shown after complete) -->
+    <div id="import-result" class="hidden mb-5 p-3 rounded-xl bg-slate-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+      <div class="grid grid-cols-2 gap-2 text-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-gray-500">Total read</span>
+          <span id="import-res-read" class="font-semibold">0</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-gray-500">Classified</span>
+          <span id="import-res-classified" class="font-semibold text-blue-500">0</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-gray-500">Inserted</span>
+          <span id="import-res-inserted" class="font-semibold text-green-500">0</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-gray-500">Duplicates</span>
+          <span id="import-res-duplicates" class="font-semibold text-amber-500">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer buttons -->
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeImportModal()"
+              class="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600
+                     text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+        Cancel
+      </button>
+      <button id="import-start-btn"
+              class="px-4 py-2 text-sm rounded-lg bg-brand-500 text-white hover:bg-brand-600 transition-colors
+                     disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+        <i class="fa-solid fa-upload text-xs"></i> Import
+      </button>
+      <button id="import-close-btn"
+              class="hidden px-4 py-2 text-sm rounded-lg bg-brand-500 text-white hover:bg-brand-600 transition-colors">
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

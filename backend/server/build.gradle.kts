@@ -29,9 +29,16 @@ dependencies {
     implementation(libs.logback.classic)
     implementation(libs.ktor.server.config.yaml)
     implementation(libs.ktor.server.cors)
-    implementation(libs.sqlite.jdbc)
+    implementation(libs.postgresql)
+    implementation(libs.hikaricp)
+    implementation(libs.flyway.core)
+    implementation(libs.flyway.database.postgresql)
     implementation(libs.arrow.core)
     implementation(libs.arrow.fx.stm)
+    implementation(libs.lettuce.core)
+    implementation(libs.exposed.core)
+    implementation(libs.exposed.jdbc)
+    implementation(libs.poi)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotest.runner.junit5)
@@ -39,8 +46,12 @@ dependencies {
     testImplementation(libs.kotest.assertions.arrow)
     testImplementation(libs.mockk)
     testImplementation(libs.ktor.client.content.negotiation)
+    testImplementation(libs.testcontainers.redis)
+    testImplementation(libs.testcontainers.junit)
 }
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
 }
+
+

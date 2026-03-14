@@ -1,0 +1,110 @@
+package com.ebalance.investments.infrastructure.web.dto
+
+import kotlinx.serialization.Serializable
+
+// ── /investments/summary ─────────────────────────────────────────────────────
+
+@Serializable
+data class WalletSummaryStatsDto(
+    val totalInvested: Double,
+    val totalCurrentValue: Double,
+    val totalPnl: Double,
+    val roi: Double
+)
+
+@Serializable
+data class SectorSummaryDto(
+    val name: String,
+    val invested: Double,
+    val currentValue: Double,
+    val pnl: Double,
+    val roi: Double,
+    val percentage: Double
+)
+
+@Serializable
+data class WalletSummaryResponse(
+    val summary: WalletSummaryStatsDto,
+    val sectors: List<SectorSummaryDto>
+)
+
+// ── /investments/holdings ────────────────────────────────────────────────────
+
+@Serializable
+data class InvestmentAssetDto(
+    val id: Int,
+    val ticker: String,
+    val name: String,
+    val sector: String,
+    val exchange: String,
+    val invested: Double,
+    val currentValue: Double,
+    val pnl: Double,
+    val roi: Double,
+    val purchasedAt: String?
+)
+
+@Serializable
+data class WalletHoldingsResponse(
+    val holdings: List<InvestmentAssetDto>,
+    val total: Int
+)
+
+// ── /investments/assets/{ticker} (PUT) ───────────────────────────────────────
+
+@Serializable
+data class UpsertAssetRequest(
+    val name: String,
+    val sector: String,
+    val exchange: String,
+    val investedAmount: Double,
+    val currentValue: Double,
+    val purchasedAt: String? = null
+)
+
+// ── /investments/progress ────────────────────────────────────────────────────
+
+@Serializable
+data class SectorProgressDto(
+    val sector: String,
+    val values: List<Double>
+)
+
+@Serializable
+data class WalletProgressResponse(
+    val months: List<String>,
+    val series: List<SectorProgressDto>
+)
+
+// ── /investments/assets/validate ─────────────────────────────────────────────
+
+@Serializable
+data class ValidateStockResponse(
+    val ticker: String,
+    val exchange: String,
+    val exists: Boolean
+)
+
+// ── /investments/stocks/price-history ────────────────────────────────────────
+
+@Serializable
+data class StockPriceHistoryDto(
+    val ticker: String,
+    val name: String,
+    val exchange: String,
+    val sector: String,
+    val currentPrice: Double,
+    val changePct: Double,
+    val investedAmount: Double,
+    val currentValue: Double,
+    val pnl: Double,
+    val roi: Double,
+    val qty: Double,
+    val months: List<String>,
+    val prices: List<Double>
+)
+
+@Serializable
+data class StockPriceHistoriesResponse(
+    val stocks: List<StockPriceHistoryDto>
+)
