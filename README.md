@@ -27,6 +27,56 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 ./gradlew installDist
 ```
 
+## Docker & Makefile
+
+The `Makefile` provides a Docker Compose-based workflow for the full stack (PostgreSQL + backend).
+
+### Services
+
+| Service | Description |
+|---------|-------------|
+| `postgres` | PostgreSQL 16 on port 5432 |
+| `redis` | Redis 7 on port 6379 |
+| `flyway-migrator` | Runs DB migrations on startup |
+| `backend` | Ktor API on port 8080 |
+
+### Commands
+
+```bash
+# Start everything (builds fat JAR first, then starts all containers)
+make up
+
+# Rebuild and redeploy only the backend
+make restart
+
+# Run backend tests
+make test-backend
+
+# Tail backend container logs
+make logs
+
+# Stop all services
+make down
+```
+
+### Database Backup & Restore
+
+```bash
+# Dump the full database to backups/ebalance_YYYYMMDD_HHMMSS.sql
+make backup
+
+# Restore from a specific backup file
+make restore FILE=backups/ebalance_20240101_020000.sql
+```
+
+Backup files are written to the `backups/` directory (created automatically). To schedule automatic backups, add a cron entry:
+
+```cron
+0 2 * * * cd /path/to/e-balance && make backup
+```
+
+---
+
 ## Using the Orchestration Script
 
 The `ebalance.sh` script automates the entire workflow:

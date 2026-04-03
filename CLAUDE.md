@@ -1,11 +1,14 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## Project Overview
 
 **E-Balance** is a personal finance management application with two main components:
 
 - **CLI Tool** (root module): Imports bank transactions from Excel and classifies them using ML models
 - **Backend API** (`backend/`): Ktor web server providing REST APIs for transaction management and investment portfolio tracking
+- **Frontend** (`frontend/`): Angular SPA for dashboards, transaction management, and investment tracking
 
 ## Repository Structure
 
@@ -40,6 +43,13 @@ e-balance/
 - **Migrations**: Flyway
 - **Caching**: Caffeine
 - **RPC**: Kotlinx RPC
+
+### Frontend (`frontend/`)
+- **Framework**: Angular 21.2.0
+- **State**: NgRx 21.0.1 (store + effects)
+- **UI**: Tailwind CSS 4 + Flowbite 4
+- **Charts**: ApexCharts 5
+- **Tests**: Vitest
 
 ### Testing
 - Kotest 6.1.3 (DescribeSpec style)
@@ -80,6 +90,27 @@ docker-compose up
 
 Server runs on `http://0.0.0.0:8080`.
 
+### Frontend
+
+```bash
+cd frontend
+
+npm install
+npm start        # dev server at http://localhost:4200 (proxies /api → :8080)
+npm run build    # production build
+npm test         # Vitest
+```
+
+### Makefile (full-stack Docker workflow)
+
+```bash
+make up          # build backend fat JAR + start Postgres + backend via docker-compose
+make restart     # full rebuild (test → JAR) then redeploy containers
+make test-backend
+make logs        # tail backend container logs
+make train-model # train neural network from CLI
+```
+
 ## Environment Configuration
 
 Create `.env` at the project root (CLI) and `backend/server/.env` (backend). See `backend/server/.env.example` for reference.
@@ -103,6 +134,12 @@ Configuration priority: `.env` file → System environment → `application.yaml
 
 # Backend tests
 cd backend && ./gradlew :server:test
+
+# Single backend test class
+cd backend && ./gradlew :server:test --tests "com.ebalance.transactions.application.GetTransactionSummaryInteractorTest"
+
+# Frontend tests
+cd frontend && npm test
 ```
 
 ### CI Matrix
@@ -150,6 +187,7 @@ CLI migrations are in `src/main/resources/db/migration/`.
 | Backend server | `backend/server/src/main/kotlin/Application.kt` |
 | DI & config    | `backend/server/src/main/kotlin/Frameworks.kt` |
 | Classification | `classification/src/main/kotlin/com/ebalance/classification/Main.kt` |
+| Frontend root  | `frontend/src/app/` |
 
 ## ML Classifier Engines
 
