@@ -1,8 +1,9 @@
-.PHONY: up down restart backend build-backend test-backend logs train-model backup restore
+.PHONY: up down restart backend frontend build-backend test-backend logs train-model backup restore
 
-# Start everything (Postgres + Backend)
+# Start everything (Postgres + Backend + Frontend)
 up: build-backend
-	docker compose up -d
+	docker compose up -d backend
+	docker compose up -d --build frontend
 
 # Start/rebuild only the backend (test → build JAR → deploy)
 backend: build-backend
@@ -25,6 +26,10 @@ down:
 restart: build-backend
 	docker compose up -d flyway-migrator
 	docker compose up -d --build backend
+
+# Start/rebuild only the frontend (builds Docker image and deploys)
+frontend:
+	docker compose up -d --build frontend
 
 # Tail backend logs
 logs:

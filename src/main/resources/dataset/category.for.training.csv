@@ -9,6 +9,7 @@ COMBUSTIVEL;Repsol
 COMBUSTIVEL;Galp
 COMBUSTIVEL;Cepsa
 COMBUSTIVEL;Disa Guim Creixomil
+COMBUSTIVEL;A.s. Ceide (g/f)
 TRANSPORTE;Uber Trip
 TRANSPORTE;Ubr .uber
 TRANSPORTE;Bolt
@@ -68,6 +69,7 @@ SUPERMERCADO;Auchan
 SUPERMERCADO;Lidl
 SUPERMERCADO;Minimercado
 SUPERMERCADO;Moom Minimercado
+SUPERMERCADO;Continente
 ASSINATURAS;Netflix
 ASSINATURAS;Spotify
 ASSINATURAS;Spotify P327dd8e02
@@ -89,6 +91,7 @@ FARMACIA;Atacadao Drogacenter
 FARMACIA;Farm Dias Machado
 FARMACIA;Pharmacie
 FARMACIA;Farma V Castro,lda
+FARMACIA;Fcm Lda
 TELEFONIA;Nos Comunicacoes
 TELEFONIA;Vodafone
 TELEFONIA;MEO
@@ -97,6 +100,7 @@ TELEFONIA;Airalo
 MORADIA;Hiper Casa
 MORADIA;Havan Valparaiso De Go
 MORADIA;Amazon Br
+MORADIA;Radio Popular
 ARRENDAMENTO;Arrendamento
 ARRENDAMENTO;Aluguer
 ARRENDAMENTO;Renda Casa
@@ -198,6 +202,7 @@ GINASIO;Fitness Hut
 GINASIO;Ginásio
 GINASIO;Academia
 GINASIO;Sport
+GINASIO;Clinica Cp Premium
 EDUCACAO;Universidade
 EDUCACAO;Curso
 EDUCACAO;Formação
