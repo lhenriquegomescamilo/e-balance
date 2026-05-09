@@ -1,0 +1,36 @@
+# Build artefacts and caches — produced inside the image, never copied in.
+node_modules
+dist
+.angular
+out-tsc
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Local environment
+.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker artefacts (avoid recursive context inflation)
+Dockerfile
+.dockerignore
+
+# Anything in docs/ is build-time-irrelevant — keep image lean.
+docs
+
+# Misc
+README.md
+CLAUDE.md
+coverage
+*.tsbuildinfo

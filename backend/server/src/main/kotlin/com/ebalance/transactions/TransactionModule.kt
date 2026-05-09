@@ -3,6 +3,8 @@ package com.ebalance.transactions
 import arrow.fx.stm.TVar
 import com.ebalance.transactions.application.*
 import com.ebalance.transactions.domain.TransactionRepository
+import com.ebalance.transactions.infrastructure.graphql.TransactionMutation
+import com.ebalance.transactions.infrastructure.graphql.TransactionQuery
 import com.ebalance.transactions.infrastructure.persistence.TransactionRepositoryImpl
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
@@ -20,4 +22,6 @@ fun transactionModule(database: Database, modelPath: String) = module {
         UpdateTransactionCategoryInteractor(get(), inFlight, committed)
     }
     single { ImportTransactionsUseCase(database, modelPath) }
+    single { TransactionQuery(get(), get(), get(), get()) }
+    single { TransactionMutation(get()) }
 }

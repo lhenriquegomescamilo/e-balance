@@ -14,6 +14,10 @@ import com.ebalance.transactions.application.GetTransactionsUseCase
 import com.ebalance.transactions.application.ImportTransactionsUseCase
 import com.ebalance.transactions.application.UpdateTransactionCategoryUseCase
 import com.ebalance.transactions.infrastructure.web.transactionRoutes
+import com.expediagroup.graphql.server.ktor.graphQLGetRoute
+import com.expediagroup.graphql.server.ktor.graphQLPostRoute
+import com.expediagroup.graphql.server.ktor.graphQLSDLRoute
+import com.expediagroup.graphql.server.ktor.graphiQLRoute
 import io.ktor.server.application.*
 import io.ktor.server.http.content.*
 import io.ktor.server.response.*
@@ -44,8 +48,27 @@ fun Application.configureRouting() {
         // Serve the static dashboard at /static/*
         staticResources("/static", "static")
 
-        // REST API — all endpoints live under /api/v1
+        // GraphQL — preferred API surface going forward.
+        graphQLGetRoute()
+        graphQLPostRoute()
+        graphQLSDLRoute()    // GET /sdl  → schema definition language
+        graphiQLRoute()      // GET /graphiql → in-browser explorer
+
+        // REST API — DEPRECATED, retained for existing clients during migration.
+        // Every response under /api/v1 advertises the deprecation via
+        // RFC 8594 Deprecation + Link("successor-version") headers so clients
+        // can detect it without calling each endpoint individually.
         route("/api/v1") {
+            install(createRouteScopedPlugin("DeprecatedApiHeaders") {
+                onCallRespond { call ->
+                    call.response.headers.append("Deprecation", "true", safeOnly = false)
+                    call.response.headers.append(
+                        "Link",
+                        "</graphql>; rel=\"successor-version\"",
+                        safeOnly = false
+                    )
+                }
+            })
             transactionRoutes(summaryUseCase, transactionsUseCase, categoriesUseCase, monthlySummaryUseCase, updateCategoryUseCase, importUseCase)
             investmentRoutes(walletSummaryUseCase, walletHoldingsUseCase, walletProgressUseCase, upsertAssetUseCase, stockPriceHistoryUseCase, validateStockUseCase)
         }

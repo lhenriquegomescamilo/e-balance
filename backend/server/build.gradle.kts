@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)
     implementation(libs.poi)
+    implementation(libs.graphql.kotlin.ktor.server)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.kotest.runner.junit5)
@@ -52,6 +53,23 @@ dependencies {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+
+    // Testcontainers' default strategies probe a hard-coded list of socket
+    // locations and don't see Docker Desktop's per-user socket on macOS
+    // (~/.docker/run/docker.sock). When DOCKER_HOST isn't already set in the
+    // environment, point the test JVM at that socket if it exists. On
+    // Linux/CI both branches are no-ops so /var/run/docker.sock is used.
+    val explicit = System.getenv("DOCKER_HOST")
+    val desktopSock = file("${System.getProperty("user.home")}/.docker/run/docker.sock")
+    val dockerHost = explicit ?: if (desktopSock.exists()) "unix://${desktopSock.absolutePath}" else null
+    if (dockerHost != null) {
+        environment("DOCKER_HOST", dockerHost)
+        // Testcontainers' EnvironmentAndSystemPropertyClientProviderStrategy
+        // reads the lowercase 'docker.host' system property — not 'DOCKER_HOST'.
+        systemProperty("docker.host", dockerHost)
+        // Surface the test JVM's view in stdout for diagnosis.
+        testLogging { showStandardStreams = true }
+    }
 }
 
 

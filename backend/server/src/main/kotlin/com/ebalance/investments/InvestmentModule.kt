@@ -5,6 +5,8 @@ import com.ebalance.investments.application.GetStockPriceHistoryUseCase
 import com.ebalance.investments.application.*
 import com.ebalance.investments.domain.InvestmentRepository
 import com.ebalance.investments.domain.StockPriceService
+import com.ebalance.investments.infrastructure.graphql.InvestmentMutation
+import com.ebalance.investments.infrastructure.graphql.InvestmentQuery
 import com.ebalance.investments.infrastructure.persistence.InvestmentRepositoryImpl
 import com.ebalance.investments.infrastructure.stock.SerpApiStockPriceService
 import io.lettuce.core.api.sync.RedisCommands
@@ -34,4 +36,6 @@ fun investmentModule(
     single<UpsertInvestmentAssetUseCase>  { UpsertInvestmentAssetInteractor(get()) }
     single<GetStockPriceHistoryUseCase>   { GetStockPriceHistoryInteractor(get(), get()) }
     single<ValidateStockUseCase>          { ValidateStockInteractor(get()) }
+    single { InvestmentQuery(get(), get(), get(), get(), get()) }
+    single { InvestmentMutation(get()) }
 }

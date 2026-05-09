@@ -1,7 +1,14 @@
 package com.ebalance
 
+import com.ebalance.graphql.CustomSchemaGeneratorHooks
+import com.ebalance.graphql.DomainExceptionHandler
+import com.ebalance.investments.infrastructure.graphql.InvestmentMutation
+import com.ebalance.investments.infrastructure.graphql.InvestmentQuery
 import com.ebalance.investments.investmentModule
+import com.ebalance.transactions.infrastructure.graphql.TransactionMutation
+import com.ebalance.transactions.infrastructure.graphql.TransactionQuery
 import com.ebalance.transactions.transactionModule
+import com.expediagroup.graphql.server.ktor.GraphQL
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.lettuce.core.RedisClient
@@ -13,6 +20,7 @@ import kotlinx.rpc.krpc.serialization.json.*
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
 import org.koin.dsl.module
+import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.plugin.Koin
 import org.koin.logger.slf4jLogger
 
@@ -147,6 +155,28 @@ fun Application.configureFrameworks() {
                 serialization { json() }
             }
             registerService<SampleService> { SampleServiceImpl() }
+        }
+    }
+
+    // GraphQL plugin (replacement for the deprecated REST API under /api/v1).
+    // Resolvers come from the Koin modules already installed above.
+    val transactionQuery    = koinGet<TransactionQuery>()
+    val transactionMutation = koinGet<TransactionMutation>()
+    val investmentQuery     = koinGet<InvestmentQuery>()
+    val investmentMutation  = koinGet<InvestmentMutation>()
+
+    install(GraphQL) {
+        schema {
+            packages = listOf(
+                "com.ebalance.transactions.infrastructure.graphql",
+                "com.ebalance.investments.infrastructure.graphql"
+            )
+            queries = listOf(transactionQuery, investmentQuery)
+            mutations = listOf(transactionMutation, investmentMutation)
+            hooks = CustomSchemaGeneratorHooks()
+        }
+        engine {
+            exceptionHandler = DomainExceptionHandler()
         }
     }
 }

@@ -29,7 +29,7 @@ A CLI tool for importing bank transactions from Excel files into SQLite database
 
 ## Docker & Makefile
 
-The `Makefile` provides a Docker Compose-based workflow for the full stack (PostgreSQL + backend).
+The `Makefile` provides a Docker Compose-based workflow for the full stack (PostgreSQL + Redis + backend + frontend).
 
 ### Services
 
@@ -39,15 +39,24 @@ The `Makefile` provides a Docker Compose-based workflow for the full stack (Post
 | `redis` | Redis 7 on port 6379 |
 | `flyway-migrator` | Runs DB migrations on startup |
 | `backend` | Ktor API on port 8080 |
+| `frontend` | Angular SPA served by nginx on port 4200 (proxies `/api` and `/graphql` → `backend:8080`) |
+
+Once the stack is up, the app is reachable at:
+
+- **Frontend** — <http://localhost:4200>
+- **Backend API** — <http://localhost:8080/api/v1>
 
 ### Commands
 
 ```bash
-# Start everything (builds fat JAR first, then starts all containers)
+# Start everything (builds backend fat JAR + frontend image, then starts all containers)
 make up
 
 # Rebuild and redeploy only the backend
 make restart
+
+# Rebuild and redeploy only the frontend
+make frontend
 
 # Run backend tests
 make test-backend
@@ -57,6 +66,31 @@ make logs
 
 # Stop all services
 make down
+```
+
+### Frontend container
+
+The frontend ships as a multi-stage Docker image: `node:22-alpine` builds the
+Angular bundle, then `nginx:1.27-alpine` serves it. Configuration lives in
+`frontend/Dockerfile` and `frontend/nginx.conf`. The image:
+
+- Serves the SPA with `try_files` fallback so client-side routing works.
+- Proxies `/api/` and `/graphql` to `backend:8080` (with SSE-friendly
+  buffering settings for the import endpoint).
+- Uses Docker's embedded DNS resolver so the container starts even when the
+  backend hostname isn't yet reachable — failing requests surface as 502
+  rather than crashing nginx on boot.
+- Long-caches hashed JS/CSS assets and `no-store`s `index.html`.
+- Exposes `/healthz` for the Docker healthcheck.
+
+To build and run the frontend image standalone (without the rest of the
+stack — `/api` and `/graphql` will return 502 until the backend is on the
+same Docker network):
+
+```bash
+cd frontend
+docker build -t finglass:latest .
+docker run -p 4200:80 finglass:latest
 ```
 
 ### Database Backup & Restore
